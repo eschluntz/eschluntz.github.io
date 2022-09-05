@@ -1,0 +1,13 @@
+---
+layout: post
+title:  "Find Me"
+date:   2015-01-01 00:00:00 -0700
+thumbnail: '/img/posts/06.jpg'
+category: about
+---
+Email: eschluntz@gmail.com
+Phone: 301 520 5019
+Facebook: facebook.com/erik.schluntz
+LinkedIn: linkedin.com/profile/view?id=190792692
+YouTube: youtube.com/user/eschluntz/videos
+Github: github.com/eschluntz

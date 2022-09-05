@@ -30,14 +30,30 @@ layout: default
         {{ content }}
 
         <!-- Home Post List -->
-        {% for post in site.posts %}
-        {% if post.category contains "about" %}
+        {% for post in site.posts limit : 5 %}
+        {% if post.category contains "hardware" %}
 
         <article class="post-preview">
-          <!-- <img style="border-radius:500px; width:350px; height:350px; float:left" src="{{ post.thumbnail }}" /> -->
-          <h2 class="post-title">{{ post.title }}</h2>
-          <p class="post-subtitle">{{ post.content }}</p>
+          <a href="{{ post.url | prepend: site.baseurl | replace: '//', '/' }}">
+            <h2 class="post-title">{{ post.title }}</h2>
+            {% if post.subtitle %}
+            <h3 class="post-subtitle">{{ post.subtitle }}</h3>
+            {% else %}
+            <h3 class="post-subtitle">{{ post.excerpt | strip_html | truncatewords: 15 }}</h3>
+            {% endif %}
+          </a>
+          <p class="post-meta">Posted by
+            {% if post.author %}
+            {{ post.author }}
+            {% else %}
+            {{ site.author }}
+            {% endif %}
+            on
+            {{ post.date | date: '%B %d, %Y' }} &middot; {% include read_time.html content=post.content %}
+          </p>
+          <img src="{{ post.thumbnail }}" />
         </article>
+
         <hr>
 
         {% endif %}

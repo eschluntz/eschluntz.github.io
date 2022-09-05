@@ -1,0 +1,10 @@
+---
+layout: post
+title:  "Work Experience"
+date:   2015-01-04 00:00:00 -0700
+thumbnail: '/img/posts/06.jpg'
+category: "about"
+---
+I'm the cofounder and CTO of Cobalt Robotics. Along with my cofounder Travis Deyle, we build indoor security guard robots for offices, datacenters, and warehouses.
+
+Previously, I worked on SpaceX's Flight Software Team, leading testing for an entirely new fuel system on the Falcon 9 rocket in 2015, and on Google[x]'s Smart Contact Lens project, prototyping radical new uses for low power electronics in 2014. While at Harvard I dropped out to start Posmetrics. We were accepted to Y Combinator’s winter class of 2013, and later acquired.

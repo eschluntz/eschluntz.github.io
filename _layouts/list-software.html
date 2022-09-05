@@ -30,8 +30,8 @@ layout: default
         {{ content }}
 
         <!-- Home Post List -->
-        {% for post in site.posts limit : 5 %}
-        {% if post.category contains "hardware" %}
+        {% for post in site.posts %}
+        {% if post.category contains "software" %}
 
         <article class="post-preview">
           <a href="{{ post.url | prepend: site.baseurl | replace: '//', '/' }}">
@@ -51,18 +51,13 @@ layout: default
             on
             {{ post.date | date: '%B %d, %Y' }} &middot; {% include read_time.html content=post.content %}
           </p>
-          <img src="{{ post.thumbnail }}" />
+          <!-- <img src="{{ post.thumbnail }}" /> -->
         </article>
 
         <hr>
 
         {% endif %}
         {% endfor %}
-
-        <!-- Pager -->
-        <div class="clearfix">
-          <a class="btn btn-primary float-right" href="{{"/posts" | relative_url }}">View All Posts &rarr;</a>
-        </div>
 
       </div>
     </div>

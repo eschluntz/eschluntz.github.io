@@ -1,11 +1,33 @@
+## Instructions
+Install
+```
+sudo apt install ruby-full
+sudo gem install bundler
+sudo gem install public_suffix -v 4.0.7
+sudo gem install jekyll
+bundle install
+```
+
+Run Locally
+```
+bundle exec jekyll serve --livereload --trace
+```
+
+Deploy
+```
+Just push to the gh-pages branch :)
+```
+
+
+## TODO
 devops
-[x] figure out how to build locally
-[x] deploy to github pages
-[ ] hook up to domain name
+- [x] figure out how to build locally
+- [x] deploy to github pages
+- [ ] hook up to domain name
 
 blog
-[x] figure out how to edit template
-[ ] edit nav bar
-[ ] create separate category home pages (about, sw, hw, eship)
-[ ] create css for circle images in previews
-[ ] copy in text and images from existing website
+- [x] figure out how to edit template
+- [ ] edit nav bar
+- [ ] create separate category home pages (about, sw, hw, eship)
+- [ ] create css for circle images in previews
+- [ ] copy in text and images from existing website
