@@ -29,6 +29,7 @@ blog
 - [x] figure out how to edit template
 - [x] edit nav bar
 - [x] create separate category home pages (about, sw, hw, eship)
+- [x] create css for circle images in previews
 - [ ] copy in text and images from existing website
 - [ ] decide on design
-- [ ] create css for circle images in previews
+- [ ] flesh out pictures and stuff for existing posts
