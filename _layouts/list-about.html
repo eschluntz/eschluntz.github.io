@@ -25,7 +25,8 @@ layout: default
 
   <div class="container">
     <div class="row">
-      <div class="col-lg-8 col-md-10 mx-auto">
+      <!-- <div class="col-lg-8 col-md-10 mx-auto"> -->
+      <div>
 
         {{ content }}
 
@@ -33,21 +34,23 @@ layout: default
         {% for post in site.posts %}
         {% if post.category contains "about" %}
 
-        <article class="post-preview">
-          <!-- <img style="border-radius:500px; width:350px; height:350px; float:left" src="{{ post.thumbnail }}" /> -->
-          <h2 class="post-title">{{ post.title }}</h2>
-          <p class="post-subtitle">{{ post.content }}</p>
+        <article class="post-preview" style="min-height:350px;">
+          <img style="border-radius:500px; width:350px; height:350px; float:left; margin-right:40px;" src="{{ post.thumbnail }}" />
+          <table>
+            <tbody>
+              <tr>
+                <td>
+                  <h2 class="post-title">{{ post.title }}</h2>
+                  <p class="post-subtitle">{{ post.content }}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </article>
         <hr>
 
         {% endif %}
         {% endfor %}
-
-        <!-- Pager -->
-        <div class="clearfix">
-          <a class="btn btn-primary float-right" href="{{"/posts" | relative_url }}">View All Posts &rarr;</a>
-        </div>
-
       </div>
     </div>
   </div>

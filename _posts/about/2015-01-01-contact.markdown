@@ -2,7 +2,7 @@
 layout: post
 title:  "Find Me"
 date:   2015-01-01 00:00:00 -0700
-thumbnail: '/img/posts/06.jpg'
+thumbnail: '/img/about/closeup2.jpg'
 category: about
 ---
 Email: eschluntz@gmail.com

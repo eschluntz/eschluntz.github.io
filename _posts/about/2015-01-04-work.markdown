@@ -2,7 +2,7 @@
 layout: post
 title:  "Work Experience"
 date:   2015-01-04 00:00:00 -0700
-thumbnail: '/img/posts/06.jpg'
+thumbnail: '/img/about/cobalt_thumb.jpg'
 category: "about"
 ---
 I'm the cofounder and CTO of Cobalt Robotics. Along with my cofounder Travis Deyle, we build indoor security guard robots for offices, datacenters, and warehouses.

@@ -27,7 +27,8 @@ devops
 
 blog
 - [x] figure out how to edit template
-- [ ] edit nav bar
-- [ ] create separate category home pages (about, sw, hw, eship)
-- [ ] create css for circle images in previews
+- [x] edit nav bar
+- [x] create separate category home pages (about, sw, hw, eship)
 - [ ] copy in text and images from existing website
+- [ ] decide on design
+- [ ] create css for circle images in previews
