@@ -11,11 +11,11 @@ layout: default
     <div class="overlay"></div>
     <div class="container">
       <div class="row">
-        <div class="col-lg-8 col-md-10 mx-auto">
-          <div class="page-heading">
+        <div class="col-lg-8 col-md-10" style="margin-left:0px; float:left">
+          <div class="page-heading" style="float:left">
             <h1>{{ site.title }}</h1>
             {% if site.description %}
-            <span class="subheading">{{ site.description }}</span>
+            <span class="subheading" style="float:left; margin-left:4px">{{ site.description }}</span>
             {% endif %}
           </div>
         </div>
@@ -34,7 +34,7 @@ layout: default
         {% for post in site.posts %}
         {% if post.category contains "about" %}
 
-        <article class="post-preview" style="min-height:350px;">
+        <article class="post-preview" style="min-height:400px;">
           <img style="border-radius:500px; width:350px; height:350px; float:left; margin-right:40px;" src="{{ post.thumbnail }}" />
           <table>
             <tbody>
