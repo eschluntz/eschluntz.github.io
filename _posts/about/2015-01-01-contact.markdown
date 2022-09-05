@@ -1,13 +1,18 @@
 ---
 layout: post
-title:  "Find Me"
+title:  "Contact"
 date:   2015-01-01 00:00:00 -0700
 thumbnail: '/img/about/closeup2.jpg'
 category: about
 ---
-Email: eschluntz@gmail.com
-Phone: 301 520 5019
-Facebook: facebook.com/erik.schluntz
-LinkedIn: linkedin.com/profile/view?id=190792692
-YouTube: youtube.com/user/eschluntz/videos
-Github: github.com/eschluntz
+Email: <a href="mailto:eschluntz@gmail.com">eschluntz@gmail.com</a><br>
+
+Txt: <a href="tel:301-520-5019">301 520 5019</a><br>
+
+Facebook: <a href="http://www.facebook.com/erik.schluntz">facebook.com/erik.schluntz</a> <br>
+
+LinkedIn: <a href="http://www.linkedin.com/profile/view?id=190792692">linkedin.com/profile/view?id=190792692</a><br>
+
+YouTube: <a href="https://www.youtube.com/user/eschluntz/videos">youtube.com/user/eschluntz/videos</a><br>
+
+Github: <a href="http://www.github.com/eschluntz">github.com/eschluntz</a> <br>

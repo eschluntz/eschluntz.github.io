@@ -31,6 +31,7 @@ blog
 - [x] create separate category home pages (about, sw, hw, eship)
 - [x] create css for circle images in previews
 - [x] decide on design
-- [ ] copy in text and images from existing website
+- [x] copy in text and images from existing website
 - [ ] flesh out pictures and stuff for existing posts
 - [ ] find better cover photo with lots of robots
+- [ ] write up some recent cobalt projects!
