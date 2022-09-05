@@ -2,7 +2,7 @@
 layout: post
 title:  "Cellular Automata"
 date:   2011-01-01 00:00:00 -0700
-thumbnail: '/img/posts/06.jpg'
+thumbnail: '/img/software/ca.png'
 category: software
 ---
 This program simulates Conway's Game of Life, a well known rule for 2 dimensional Cellular Automata. Cellular Automata can produce incredibly complex patterns from extremely simple rules and interactions, and noted scientist Stephen Wolfram suggests that they can be used to model reality more effectively than mathematical equations in certain situations.

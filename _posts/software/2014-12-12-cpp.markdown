@@ -2,7 +2,7 @@
 layout: post
 title:  "High Performance C++"
 date:   2014-12-12 00:00:00 -0700
-thumbnail: '/img/software/cloth.jpg'
+thumbnail: '/img/software/cloth.png'
 category: software
 ---
 Using C++ I created a variety of physics simulations for a graduate class on Systems Development for Scientific Computing. I implemented an abstract graph class to represent my data, and applied it to several different problems including mass spring simulations, shallow water models, and geometric collision detection. <br><br>

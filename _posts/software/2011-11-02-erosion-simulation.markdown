@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Unreal Gravity"
+title:  "Erosion Simulation"
 date:   2011-11-02 00:00:00 -0700
 thumbnail: '/img/software/erosion.png'
 category: software

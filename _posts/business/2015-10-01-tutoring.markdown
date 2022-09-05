@@ -2,7 +2,7 @@
 layout: post
 title:  "On Demand Video Tutoring"
 date:   2015-10-01 00:00:00 -0700
-thumbnail: '/img/business/tutoring.jpg'
+thumbnail: '/img/business/tutoring.png'
 category: business
 ---
 Alex Kaufman and I thought that <a href="http://thetab.com/us/harvard/2015/11/17/meet-the-startup-guys-who-are-going-to-save-your-cs-midterms-1309">arranging traditional tutoring was too slow</a> to help students when they really need it -- If you're up late finishing a problem set or studying for an exam the next day, there's no way to talk to a tutor in the moment. We built `cs50pro` as a way for students to instantly connect to tutors through video chat. Just like Uber, our tutors receive notifications when someone requests a session and the first person to respond is connected.

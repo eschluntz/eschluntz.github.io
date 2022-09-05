@@ -2,7 +2,7 @@
 layout: post
 title:  "Shock Absorber"
 date:   2012-12-20 00:00:00 -0700
-thumbnail: '/img/hardware/shock_1.jpg'
+thumbnail: '/img/hardware/shock_1.png'
 category: hardware
 ---
 As the final project for my Mechanical Systems class, we had to design a shock absorber that would minimize the impact force of a 10lb weight dropped from 2 meters, as well as model the system as springs and dampers to predict the maximum force during the impact.
