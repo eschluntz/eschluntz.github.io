@@ -1,0 +1,10 @@
+---
+layout: post
+title:  "Tech in the World"
+date:   2014-02-01 00:00:00 -0700
+thumbnail: '/img/business/titw.jpg'
+category: business
+---
+Over January 2014 I traveled to Tanzania as part of the Tech in the World program to expose more CS students to international development. While there, we designed and built a system for the Ifakara Health Institute that would allow them to send Verbal Autopsy reports to and from physicians electronically, replacing a paper based system that could take over 6 months to process.
+<br><br>
+We taught short seminars on different CS topics at Dar es Salaam Institute of Technology and became close friends with many of the students there! We also visited a local tech incubator and talked to entrepreneurs about the projects they were working on.

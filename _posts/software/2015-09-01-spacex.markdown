@@ -1,0 +1,10 @@
+---
+layout: post
+title:  "SpaceX Falcon 9"
+date:   2015-09-01 00:00:00 -0700
+thumbnail: '/img/software/rocket.jpg'
+category: software
+---
+This summer I worked at SpaceX on the Flight Software Test Team. Ensuring software correctness is a challenging problem on a project as complex as a rocket, where so much performance depends directly on the hardware. Our team creates automated tests that leverage both simulations and actual flight hardware to verify that new code is flight worthy, and that no changes have broken old subsystems. <br><br>
+
+I was the lead testing engineer for an overhaul of the fuel systems on the rocket for the upcoming Flight 21. I also created a data analysis library wrapping <a href="http://pandas.pydata.org/">Python Pandas</a> for monitoring telemetry data that comes back from our simulations and actual flights.  

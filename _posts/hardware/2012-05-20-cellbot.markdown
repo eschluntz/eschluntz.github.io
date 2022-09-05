@@ -1,0 +1,10 @@
+---
+layout: post
+title:  "Cellphone Based Robot"
+date:   2012-05-20 00:00:00 -0700
+thumbnail: '/img/hardware/cellbot.jpg'
+category: hardware
+---
+For my final project in Introduction to Electrical Engineering, my group created a robot that used an android handset as its processor. The robot was able to receive instructions through the cellphone's data service and also stream back video from the phone's camera.
+<br><br>
+I chose to use a cellphone as the base of the robot over the more conventional choices of a micocontroller or a full computer because cellphones are already optimized for mobility and come with standard technologies that are extremely applicable for robotics. A standard phone comes with a fast processor, a cellular data connection, GPS, a camera, an accelerometer, and most importantly a long battery life.
