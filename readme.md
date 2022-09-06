@@ -32,8 +32,7 @@ blog
 - [x] create css for circle images in previews
 - [x] decide on design
 - [x] copy in text and images from existing website
-- [ ] flesh out pictures and stuff for existing posts
-- [ ] find better cover photo with lots of robots
+- [x] flesh out pictures and stuff for existing posts
 - [ ] write up some recent cobalt projects!
     - [ ] docker on robots
     - [ ] if software were hardware
