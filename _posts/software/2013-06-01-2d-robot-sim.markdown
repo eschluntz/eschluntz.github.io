@@ -3,6 +3,9 @@ layout: post
 title:  "2D Robot Simulation"
 date:   2013-06-01 00:00:00 -0700
 thumbnail: '/img/software/robot_sim.png'
+background: '/img/software/robot_sim.png'
 category: software
 ---
 My goal with this program was to create an environment where I could accurately simulate a robotic system without any hardware. The most challenging part of robotics is overcoming the physical imperfections, noise, and unpredictability in the environment. I tried to mimic this as closely as possible in the simulation by only allowing the robot to perceive its environment through "sensors" which add noise to their measurements.
+
+[github repo](https://github.com/eschluntz/RSim)

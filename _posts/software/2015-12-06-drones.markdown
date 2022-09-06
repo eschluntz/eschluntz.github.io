@@ -3,6 +3,9 @@ layout: post
 title:  "Adaptive Control for Damaged Drones"
 date:   2015-12-06 00:00:00 -0700
 thumbnail: '/img/software/drone.jpg'
+background: '/img/software/drone_diagram.png'
 category: software
 ---
-Modern control techniques like LQR require an accurate model of the system they are controlling, but if that system changes changes you're out of luck. <a href="https://youtu.be/5TqzQFmIsGg">I designed an adaptive controller to maintain control of a drone even if one of its propellers breaks</a>. The algorithm compares the drone's expected behavior and observed behavior to learn thrust offsets and correct them.
+Modern control techniques like LQR require an accurate model of the system they are controlling, but if that system changes changes you're out of luck. I designed an adaptive controller to maintain control of a drone even if one of its propellers breaks. The algorithm compares the drone's expected behavior and observed behavior to learn thrust offsets and correct them.
+
+<iframe width="100%" height="400px" src="https://www.youtube.com/embed/5TqzQFmIsGg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>

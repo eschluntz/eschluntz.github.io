@@ -33,3 +33,5 @@ Against random obstacle scenarios, Trajectory Libraries found a solution 98% of 
 
 <img src="/img/software/traj/results.png" alt="opt" width="100%"/>
 _Fig 5. Results_
+
+[github repo](https://github.com/eschluntz/traj)
