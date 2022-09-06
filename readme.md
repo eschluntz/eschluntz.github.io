@@ -23,7 +23,7 @@ Just push to the gh-pages branch :)
 devops
 - [x] figure out how to build locally
 - [x] deploy to github pages
-- [ ] hook up to domain name
+- [x] hook up to domain name
 
 blog
 - [x] figure out how to edit template
@@ -35,3 +35,6 @@ blog
 - [ ] flesh out pictures and stuff for existing posts
 - [ ] find better cover photo with lots of robots
 - [ ] write up some recent cobalt projects!
+    - [ ] docker on robots
+    - [ ] if software were hardware
+    - [ ] elevators

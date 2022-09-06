@@ -5,6 +5,6 @@ date:   2015-01-02 00:00:00 -0700
 thumbnail: '/img/about/sailing.jpg'
 category: about
 ---
-On days off, I enjoy mountain biking, sailing, skiing, and hiking. When I don't have quite as much time, I read science fiction, lift weights, and discuss politics with friends.
+On days off, I enjoy ~~mountain biking~~, sailing, skiing, and hiking. When I don't have quite as much time, I read science fiction, play board games, play tennis, and discuss politics with friends.
 
-I am also an avid traveler and greatly enjoy getting lost in a new city or area and experiencing different cultures. Some of my favorite trips have been to Beijing, Abu Dhabi, Singapore, Istanbul, and Dar es Salaam.
+I am also an avid traveler and greatly enjoy getting lost in a new city or area and experiencing different cultures. Some of my favorite trips have been to Cappadocia, Vietnam, Singapore, Istanbul, and Dar es Salaam.

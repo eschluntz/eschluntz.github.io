@@ -2,7 +2,7 @@
 layout: post
 title:  "Contact"
 date:   2015-01-01 00:00:00 -0700
-thumbnail: '/img/about/closeup2.jpg'
+thumbnail: '/img/about/crew.jpg'
 category: about
 ---
 Email: <a href="mailto:eschluntz@gmail.com">eschluntz@gmail.com</a><br>
