@@ -3,6 +3,7 @@ layout: post
 title:  "Cellphone Based Robot"
 date:   2012-05-20 00:00:00 -0700
 thumbnail: '/img/hardware/cellbot.jpg'
+background: '/img/hardware/cellbot.jpg'
 category: hardware
 ---
 For my final project in Introduction to Electrical Engineering, my group created a robot that used an android handset as its processor. The robot was able to receive instructions through the cellphone's data service and also stream back video from the phone's camera.
