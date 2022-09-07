@@ -33,6 +33,7 @@ blog
 - [x] decide on design
 - [x] copy in text and images from existing website
 - [x] flesh out pictures and stuff for existing posts
+- [ ] cross post cobalt blog posts
 - [ ] write up some recent cobalt projects!
     - [ ] docker on robots
     - [ ] if software were hardware
