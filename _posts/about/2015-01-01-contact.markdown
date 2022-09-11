@@ -5,14 +5,13 @@ date:   2015-01-01 00:00:00 -0700
 thumbnail: '/img/about/crew.jpg'
 category: about
 ---
-Email: <a href="mailto:eschluntz@gmail.com">eschluntz@gmail.com</a><br>
+<a href="mailto:eschluntz@gmail.com">eschluntz@gmail.com</a><br>
 
-Txt: <a href="tel:301-520-5019">301 520 5019</a><br>
+<a href="https://twitter.com/ErikSchluntz">@ErikSchluntz</a><br>
 
-Facebook: <a href="http://www.facebook.com/erik.schluntz">facebook.com/erik.schluntz</a> <br>
+<a href="https://www.linkedin.com/in/erik-schluntz-530a9053/">linkedin.com/in/erik-schluntz-530a9053/</a><br>
 
-LinkedIn: <a href="http://www.linkedin.com/profile/view?id=190792692">linkedin.com/profile/view?id=190792692</a><br>
+<a href="http://www.github.com/eschluntz">github.com/eschluntz</a> <br>
 
-YouTube: <a href="https://www.youtube.com/user/eschluntz/videos">youtube.com/user/eschluntz/videos</a><br>
+<a href="https://www.youtube.com/user/eschluntz/videos">youtube.com/user/eschluntz/videos</a><br>
 
-Github: <a href="http://www.github.com/eschluntz">github.com/eschluntz</a> <br>
