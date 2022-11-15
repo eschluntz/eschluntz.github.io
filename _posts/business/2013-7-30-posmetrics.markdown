@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Posmetrics (originally named PollVaultr)"
+title:  "Posmetrics (originally PollVaultr)"
 date:   2013-07-30 00:00:00 -0700
 thumbnail: '/img/business/posmetrics.jpg'
 background: '/img/business/posmetrics.jpg'

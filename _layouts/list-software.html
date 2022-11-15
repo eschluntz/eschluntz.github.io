@@ -30,7 +30,7 @@ layout: default
         {% if post.category contains "software" %}
 
         <article class="post-preview" style="min-height:400px;">
-          <a href="{{ post.url | prepend: site.baseurl | replace: '//', '/' }}">
+          <a href="{{ post.url | prepend: site.baseurl | replace: '//', '/' }}" style="text-decoration: none;">
             <img style="border-radius:500px; width:350px; height:350px; float:left; margin-right:40px;" src="{{ post.thumbnail }}" />
             <table>
               <tbody>
