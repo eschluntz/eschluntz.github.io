@@ -7,10 +7,10 @@ background: '/img/business/seed/robot_progression.jpg'
 category: business
 ---
 
+_Many of my friends and employees at Cobalt have asked me what fundraising is like and what the first steps are to start a company. I’ve written this post to help demystify some of the process based on my experience raising 5 rounds over my career (Seed through Series C with [Cobalt Robotics](https://www.businessinsider.com/how-security-teams-use-cobalt-security-robots-offices-safety-2022-9) and Seed for [Posmetrics](https://techcrunch.com/2013/03/21/yc-backed-posmetrics-launches-ipad-based-customer-feedback-solution-for-brick-and-mortar-businesses/) (YC W13)). I hope many more people will start their own companies in the future and work at places that encourage entrepreneurship. Enjoy!_
+
 <img src="/img/business/seed/sv-hoodie.png" width="100%" />
 _Fig 1. Silicon Valley Formal Attire is still a mystery_
-
-_Many of my friends and employees at Cobalt have asked me what fundraising is like and what the first steps are to start a company. I’ve written this post to help demystify some of the process based on my experience raising 5 rounds over my career (Seed through Series C with [Cobalt Robotics](https://www.businessinsider.com/how-security-teams-use-cobalt-security-robots-offices-safety-2022-9) and Seed for [Posmetrics](https://techcrunch.com/2013/03/21/yc-backed-posmetrics-launches-ipad-based-customer-feedback-solution-for-brick-and-mortar-businesses/) (YC W13)). I hope many more people will start their own companies in the future and work at places that encourage entrepreneurship. Enjoy!_
 
 # What Investors Want to See
 
