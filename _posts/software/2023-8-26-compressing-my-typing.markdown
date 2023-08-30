@@ -10,7 +10,7 @@ excerpt: "I analyzed everything I wrote for 6 months and auto-generated 200 shor
 ---
 
 
-<iframe width="100%" height="400px" src="https://www.youtube.com/embed/ulCg53dtOkk?si=nOTwteoW7Mr-Bpei" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+<iframe style="width: 100%; aspect-ratio: 16 / 9;" src="https://www.youtube.com/embed/ulCg53dtOkk?si=nOTwteoW7Mr-Bpei" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 
 
 <img src="/img/software/compress/expand-demo.gif" alt="" width="100%" />
