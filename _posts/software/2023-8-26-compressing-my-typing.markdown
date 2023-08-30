@@ -10,6 +10,9 @@ excerpt: "I analyzed everything I wrote for 6 months and auto-generated 200 shor
 ---
 
 
+<iframe width="100%" height="400px" src="https://www.youtube.com/embed/ulCg53dtOkk?si=nOTwteoW7Mr-Bpei" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+
 <img src="/img/software/compress/expand-demo.gif" alt="" width="100%" />
 _Fig 1. Me writing in abbreviations. Yes, I actually write like this!_
 
@@ -17,7 +20,7 @@ A few years ago I noticed that a LOT of my slack messages were repetitive. There
 
 My first step was to figure out just how predictable and _low entropy_ my writing is. I exported a data dump of the last 6 months of our company's public channel slack history (CTO perks) and wrote a script to parse my own messages into a corpus of text. This gave me **15 thousand lines of my writing** to analyze! 
 
-[Note: once I had extracted my own writing, I securely shredded the slack export files with `srm`. Slack data exports only contain public channels, so there's no private information that I saw.]  
+{% include note.html content="Once I had extracted my own writing, I securely shredded the slack export files with `srm`. Slack data exports only contain public channels, so there's no private information that I saw. " %}
 
 
 <img src="/img/software/compress/corpus.png" alt="" width="100%" />
@@ -32,7 +35,7 @@ The next step is to look for frequently repeated phrases! I broke up my corpus i
 <img src="/img/software/compress/ngrams.png" alt="" width="100%" />
 _Fig 3. An example of how a sentence is broken down into different length n-grams. This sentence produced 15 different N-Grams to count and look for in the rest of the corpus._
 
-This got me my list of most commonly used phrases! Unsurprisingly, the top of the list is mostly 1-grams with "the" taking the top place with 9,933 occurrences in my writing. The most common 2-gram is "in the" with 755 occurrences.
+This got me my list of most commonly used phrases! Unsurprisingly, the top of the list is mostly 1-grams, with "the" taking the top place with 9,933 occurrences in my writing. The most common 2-gram is "in the" with 755 occurrences.
 
 
 <img src="/img/software/compress/counts.png" alt="" width="100%" />
@@ -58,7 +61,7 @@ Ok, now that I know what phrases I want to abbreviate, what should I actually re
 
 For #1 I thought I could just do a dictionary look up to blacklist any english words. That works great for preventing `and -> a`, but it turns out I type plenty of things that aren't officially english words, like "yc" (aka Y-Combinator). On the other hand, "bat" is an english word, but I typed it exactly zero times in my 6 month data set, and it makes a very memorable abbreviation for "be able to", which is one of my commonly typed phrases.
 
-The proper way to do this would be to use the frequently in my corpus of text to classify whether a given abbreviation is "available" or not. I started with a simple hardcoded blacklist of terms to avoid, and it worked so well that I haven't had to revisit the problem. Always good to start simple!
+The proper way to do this would be to use the frequency in my corpus of text to classify whether a given abbreviation is "available" or not. I started with a simple hardcoded blacklist of terms to avoid, and it worked so well that I haven't had to revisit the problem. Always good to start simple!
 
 
 <img src="/img/software/compress/blacklist.png" alt="" width="100%" />
@@ -69,7 +72,7 @@ So how do I make my abbreviations memorable? This whole project won't be worth a
 <img src="/img/software/compress/strategy.png" alt="" width="100%" />
 _Fig 7. Some suggested abbreviations for "Remember"_
 
-The script proceeds down the list of best phrases choosing the best available abbreviation for them. In this case, the shortcut `robot -> r` was already set because "robot" was higher on the list than "remember", so the shortcut `remember -> rr` was chosen. If `rr` had also been taken, `re` would be blocked by my blacklist, and then `rem` would be chosen.
+The script proceeds down the list of best phrases choosing the best available abbreviation for them. In the case of the word `Remember`, the shortcut `robot -> r` was already set because "robot" was higher on the list than "remember", so the shortcut `remember -> rr` was chosen. If `rr` had also been taken, `re` would be blocked by my blacklist, and then `rem` would be chosen.
 
 This prioritizes the most common phrases getting the best abbreviations! It might be better to do a global optimization of what abbreviations I want, but for now this works great.
 
@@ -119,7 +122,7 @@ Autokey detects it and injects:
 
 keyboard events, instantly replacing my abbreviation with the actual phrase! It also matches cases, so `rs -> robots` and `Rs -> Robots` etc. Also it's not just triggered on `<space>` but any non-word character, so I don't have to hit spacebar if I'm ending a sentence with an abbreviation. I have a script that reads in my list of shortcuts and generates config files for Autokey.
 
-I have happily been typing like this for about a year now, steadily increasing the number of shortcuts that I use and improving glitches here and there. Sadly Autokey works through X11, not the newer linux graphics system Wayland, so I'll need to find a different engine to use if I switch.
+Autokey works well for Ubuntu 18, but on other operating systems you'll need use a different tool for your shortcuts, such as [TextExpander](https://textexpander.com/) or [AutoHotkey](https://www.autohotkey.com/).
 
 If you're interested in trying it out on your own, all of my code is [open source on github](https://github.com/eschluntz/compress) [![Build Status](https://github.com/eschluntz/compress/actions/workflows/run_tests.yml/badge.svg)](https://github.com/eschluntz/compress/actions)!
 
