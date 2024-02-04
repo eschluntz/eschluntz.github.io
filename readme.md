@@ -2,9 +2,16 @@
 Install
 ```
 sudo apt install ruby-full
-sudo gem install bundler
-sudo gem install public_suffix -v 4.0.7
-sudo gem install jekyll
+
+# setup gems to work for non sudo
+echo '# Install Ruby Gems to ~/gems' >> ~/.bashrc
+echo 'export GEM_HOME="$HOME/gems"' >> ~/.bashrc
+echo 'export PATH="$HOME/gems/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+gem install jekyll bundler
+bundle update github-pages
+bundle add webrick
 bundle install
 ```
 
