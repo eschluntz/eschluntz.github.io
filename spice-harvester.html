@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spice Harvester</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 400px;
+            font-size: 14px;
+        }
+        /* Speed controls removed */
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="instructions">
+            <h3>Spice Harvester</h3>
+            <p>WASD to move</p>
+            <p>Spacebar: Move up</p>
+            <p>Shift: Move down</p>
+            <p><strong>Land on red spice patches to harvest</strong></p>
+            <p><strong>Land at blue bases to sell your spice</strong></p>
+            <p><a href="https://youtu.be/uTmBeR32GRA" target="_blank" rel="noopener noreferrer">Suggested background music:</a></p>
+        </div>
+    <div id="total-spice-display" style="position: absolute; top: 10px; right: 10px; background-color: rgba(0, 0, 0, 0.5); color: white; padding: 10px; border-radius: 5px;">Total Spice Harvested: <span id="total-spice-value">0</span></div>
+    <div id="spice-display" style="position: absolute; top: 50px; right: 10px; background-color: rgba(0, 0, 0, 0.5); color: white; padding: 10px; border-radius: 5px;">Spice: <span id="spice-value">0</span>/<span id="max-spice-value">25</span></div>
+    <div id="money-display" style="position: absolute; top: 90px; right: 10px; background-color: rgba(0, 0, 0, 0.5); color: white; padding: 10px; border-radius: 5px;">Money: $<span id="money-value">0</span></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xc4a88c); // Desert sky background
+        // Removed fog for better visibility
+
+        // Create player ship as a simple box
+        const shipGeometry = new THREE.BoxGeometry(50, 20, 100);
+        const shipMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
+        const ship = new THREE.Mesh(shipGeometry, shipMaterial);
+        ship.position.set(0, 0, 0);
+        scene.add(ship);
+
+        const camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 0.1, 30000);
+        // Position camera behind the ship in 3rd person view
+        camera.position.set(0, 100, 200);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Create desert terrain
+        const terrainSize = 50000; // Keep the 5x bigger terrain
+        const resolution = 128; // Back to original resolution for better performance
+        const simplex = new SimplexNoise();
+        
+        function createDesertTerrain() {
+            const geometry = new THREE.PlaneGeometry(terrainSize, terrainSize, resolution - 1, resolution - 1);
+            geometry.rotateX(-Math.PI / 2);
+            
+            // Generate height map with Simplex noise for mountains
+            const vertices = geometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const z = vertices[i + 2];
+                
+                // Multiple layers of noise for more interesting terrain
+                const nx = x / terrainSize;
+                const nz = z / terrainSize;
+                
+                // More frequent mountains (higher frequency)
+                let height = simplex.noise2D(nx * 5.0, nz * 5.0) * 1200;
+                
+                // Medium features with even higher frequency
+                height += simplex.noise2D(nx * 10.0, nz * 10.0) * 500;
+                
+                // Small details with higher frequency
+                height += simplex.noise2D(nx * 20, nz * 20) * 200;
+                
+                // Create sharper individual peaks rather than large mountain ranges
+                if (height > 400) {
+                    height = height * 1.2;
+                }
+                
+                // Some valleys should still be relatively flat
+                if (height < 100) {
+                    height = height * 0.3;
+                }
+                
+                // Keep heights positive
+                height = Math.max(0, height);
+                
+                vertices[i + 1] = height;
+            }
+            
+            // Update normals for lighting
+            geometry.computeVertexNormals();
+            
+            // Create color map based on height
+            const colors = [];
+            for (let i = 0; i < vertices.length; i += 3) {
+                const height = vertices[i + 1];
+                
+                // Base desert color (sandy)
+                let r = 0.9;
+                let g = 0.8;
+                let b = 0.6;
+                
+                // Adjust color based on height
+                if (height > 500) {
+                    // Rocky mountain peaks
+                    r = 0.6;
+                    g = 0.6;
+                    b = 0.6;
+                } else if (height > 200) {
+                    // Transition zone
+                    const t = (height - 200) / 300;
+                    r = 0.9 - (0.3 * t);
+                    g = 0.8 - (0.2 * t);
+                    b = 0.6;
+                }
+                
+                // Add slight variation
+                const noise = simplex.noise2D(vertices[i] / 1000, vertices[i + 2] / 1000) * 0.1;
+                r = Math.min(1, Math.max(0, r + noise));
+                g = Math.min(1, Math.max(0, g + noise));
+                b = Math.min(1, Math.max(0, b + noise));
+                
+                colors.push(r, g, b);
+            }
+            
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            // Create mesh with vertex colors
+            const material = new THREE.MeshLambertMaterial({
+                vertexColors: true,
+                side: THREE.DoubleSide
+            });
+            
+            const terrain = new THREE.Mesh(geometry, material);
+            terrain.receiveShadow = true;
+            terrain.castShadow = true;
+            terrain.name = "terrain";
+            
+            return terrain;
+        }
+        
+        const terrain = createDesertTerrain();
+        scene.add(terrain);
+        
+        // Note: terrain height lookup will be initialized after its definition
+
+        // Add environmental lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 0.5).normalize();
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 5000;
+        scene.add(directionalLight);
+
+        // Add atmosphere effects
+        // Add skybox instead of simple sky sphere for better visuals at distance
+        function createSky() {
+            // Create a skybox using a cube
+            const skyboxSize = 40000;
+            const skyboxGeometry = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
+            const skyboxMaterials = [];
+            
+            // Create materials for all 6 sides with a more desert-like sky color
+            for (let i = 0; i < 6; i++) {
+                skyboxMaterials.push(new THREE.MeshBasicMaterial({
+                    color: 0xc4a88c, // Dusky desert color
+                    side: THREE.BackSide
+                }));
+            }
+            
+            const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterials);
+            scene.add(skybox);
+            
+            // Add sun
+            const sunGeo = new THREE.SphereGeometry(500, 32, 32);
+            const sunMat = new THREE.MeshBasicMaterial({
+                color: 0xffff99,
+                transparent: true,
+                opacity: 0.8
+            });
+            const sun = new THREE.Mesh(sunGeo, sunMat);
+            sun.position.set(5000, 4000, -5000);
+            scene.add(sun);
+            
+            // Add distant mountains silhouette
+            for (let i = 0; i < 10; i++) {
+                const angle = (i / 10) * Math.PI * 2;
+                const distance = 9000;
+                const x = Math.cos(angle) * distance;
+                const z = Math.sin(angle) * distance;
+                
+                const mountainGeo = new THREE.ConeGeometry(800, 1600, 5);
+                const mountainMat = new THREE.MeshLambertMaterial({
+                    color: 0x8B4513
+                });
+                mountainMat.flatShading = true;
+                const mountain = new THREE.Mesh(mountainGeo, mountainMat);
+                mountain.position.set(x, -200, z);
+                mountain.lookAt(0, 0, 0);
+                mountain.rotateX(Math.PI / 2);
+                scene.add(mountain);
+            }
+        }
+        
+        createSky();
+
+        // Add dust particles for desert atmosphere
+        function createDustParticles() {
+            const particleCount = 1000;
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3); // Store wind velocities for each particle
+            const sizes = new Float32Array(particleCount);
+            
+            // Create random wind direction vector (only horizontal - no vertical component)
+            const windDirection = new THREE.Vector3(
+                Math.random() * 2 - 1,
+                0, // No vertical movement
+                Math.random() * 2 - 1
+            ).normalize();
+            
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                // Random position in a sphere around the camera
+                const radius = Math.random() * 1000 + 500;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI - Math.PI / 2;
+                
+                positions[i3] = radius * Math.cos(theta) * Math.cos(phi);
+                positions[i3 + 1] = radius * Math.sin(phi) + 200;
+                positions[i3 + 2] = radius * Math.sin(theta) * Math.cos(phi);
+                
+                // Set particle size 125% bigger (50% bigger again)
+                sizes[i] = Math.random() * 11.25 + 2.25;
+                
+                // Add slight random variation to wind direction for each particle (horizontal only)
+                velocities[i3] = windDirection.x + (Math.random() * 0.2 - 0.1);
+                velocities[i3 + 1] = 0; // No vertical movement
+                velocities[i3 + 2] = windDirection.z + (Math.random() * 0.2 - 0.1);
+            }
+            
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particles.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0xd9c59e,
+                size: 4.5, // 125% bigger base size (50% bigger again)
+                transparent: true,
+                opacity: 0.6,
+                sizeAttenuation: true,
+                depthWrite: false, // Prevents particles from disappearing based on viewing angle
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const particleSystem = new THREE.Points(particles, particleMaterial);
+            // Store velocities with the particle system for animation
+            particleSystem.userData.velocities = velocities;
+            // Store wind speed multiplier (will be increased during sandstorm)
+            particleSystem.userData.windSpeedMultiplier = 1;
+            // Store the base wind direction for respawning particles
+            particleSystem.userData.baseWindDirection = windDirection.clone();
+            // Make particles not be affected by camera frustum culling
+            particleSystem.frustumCulled = false;
+            scene.add(particleSystem);
+            
+            return particleSystem;
+        }
+        
+        // Create spice patches directly in the terrain by modifying colors
+        function createSpiceColorPatches() {
+            const numPatches = 7; // Reduced to 10 patches
+            const patchRadius = 800; // Slightly smaller to fit more
+            const spicePatches = [];
+            
+            // Create patch data
+            for (let i = 0; i < numPatches; i++) {
+                // Find a good spot for the patch
+                const position = getRandomLowAltitudePosition();
+                
+                // Create a virtual patch object to track data
+                const patch = {
+                    position: position.clone(),
+                    radius: patchRadius,
+                    spiceAmount: Math.floor(Math.random() * 100) + 1,
+                    maxSpiceAmount: 0, // Will be set after creation
+                    isBeingHarvested: false,
+                    pulsePhase: Math.random() * Math.PI * 2,
+                    affectedVertices: [], // Will store indices of affected vertices
+                    originalColors: [], // Will store original colors to restore when depleted
+                    indicator: null // For HUD indicator
+                };
+                
+                patch.maxSpiceAmount = patch.spiceAmount;
+                
+                // Get the terrain vertex positions and colors
+                const terrainPositions = terrain.geometry.attributes.position.array;
+                const terrainColors = terrain.geometry.attributes.color.array;
+                
+                // Find vertices within the patch radius and change their color
+                for (let j = 0; j < terrainPositions.length; j += 3) {
+                    const vertexX = terrainPositions[j];
+                    const vertexY = terrainPositions[j + 1]; // Height (not used for distance)
+                    const vertexZ = terrainPositions[j + 2];
+                    
+                    // Calculate distance from patch center (XZ plane only)
+                    const dx = vertexX - position.x;
+                    const dz = vertexZ - position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    
+                    // If vertex is within patch radius
+                    if (distance < patchRadius) {
+                        // Calculate falloff from center (1 at center, 0 at edge)
+                        const falloff = 1 - (distance / patchRadius);
+                        
+                        // Store the color index and original color
+                        const colorIndex = j / 3 * 3;
+                        patch.affectedVertices.push(colorIndex);
+                        
+                        // Store original colors for restoration later
+                        patch.originalColors.push({
+                            r: terrainColors[colorIndex],
+                            g: terrainColors[colorIndex + 1],
+                            b: terrainColors[colorIndex + 2]
+                        });
+                        
+                        // Change vertex color to intense red/orange spice color
+                        terrainColors[colorIndex] = Math.min(1, 0.9 * falloff + terrainColors[colorIndex] * 0.2); // More intense red
+                        terrainColors[colorIndex + 1] = Math.min(0.6, terrainColors[colorIndex + 1] * 0.2 + 0.4 * falloff); // Orange tint
+                        terrainColors[colorIndex + 2] *= 0.2; // Reduce blue significantly
+                    }
+                }
+                
+                // Add a brighter point light at the patch location
+                const spiceLight = new THREE.PointLight(0xff4400, 2.5, patchRadius * 1.5);
+                spiceLight.position.set(position.x, position.y + 50, position.z);
+                patch.light = spiceLight;
+                scene.add(spiceLight);
+                
+                spicePatches.push(patch);
+            }
+            
+            // Mark colors as needing update
+            terrain.geometry.attributes.color.needsUpdate = true;
+            
+            return spicePatches;
+        }
+        
+        // Function to find a random position at low altitude
+        function getRandomLowAltitudePosition() {
+            const position = new THREE.Vector3();
+            let found = false;
+            let attempts = 0;
+            
+            while (!found && attempts < 50) {
+                // Random position within the terrain bounds
+                const x = Math.random() * terrainSize - terrainSize / 2;
+                const z = Math.random() * terrainSize - terrainSize / 2;
+                
+                // Check the height at this position
+                const raycaster = new THREE.Raycaster();
+                raycaster.set(
+                    new THREE.Vector3(x, 5000, z),
+                    new THREE.Vector3(0, -1, 0)
+                );
+                const intersects = raycaster.intersectObject(terrain);
+                
+                if (intersects.length > 0) {
+                    const groundHeight = intersects[0].point.y;
+                    
+                    // We want spice to be only in low-lying areas (not mountains)
+                    if (groundHeight < 200) {
+                        position.set(x, groundHeight + 20, z); // Raise it higher above ground
+                        found = true;
+                    }
+                }
+                
+                attempts++;
+            }
+            
+            // If we couldn't find a good spot, just put it somewhere near the player
+            if (!found) {
+                const randomAngle = Math.random() * Math.PI * 2;
+                const randomDistance = Math.random() * 1000 + 500;
+                position.set(
+                    ship.position.x + Math.cos(randomAngle) * randomDistance,
+                    100, // Higher than ground level
+                    ship.position.z + Math.sin(randomAngle) * randomDistance
+                );
+            }
+            
+            return position;
+        }
+        
+            // Keep dust particles near player regardless of world size
+            const dustParticles = createDustParticles();
+            
+            // Create spice patches by modifying terrain color directly
+            const spicePatches = createSpiceColorPatches();
+            
+            // Player spice and money counters
+            let playerSpice = 0;
+            let playerMoney = 0;
+            let totalSpiceHarvested = 0; // Track total spice harvested throughout the game
+            let maxSpiceCapacity = 25; // Starting spice capacity (can be upgraded)
+            const spiceValue = document.getElementById('spice-value');
+            const moneyValue = document.getElementById('money-value');
+            const totalSpiceValue = document.getElementById('total-spice-value');
+            spiceValue.textContent = playerSpice;
+            moneyValue.textContent = playerMoney;
+            totalSpiceValue.textContent = totalSpiceHarvested;
+            
+            // Player upgrades
+            const upgrades = {
+                speed: {
+                    level: 0,
+                    cost: 20,
+                    value: 15, // Starting speed
+                    increment: 10 // Speed increase per upgrade
+                },
+                capacity: {
+                    level: 0,
+                    cost: 20,
+                    value: 25, // Starting capacity
+                    increment: 25 // Capacity increase per upgrade
+                },
+                altitude: {
+                    level: 0,
+                    cost: 20,
+                    value: 600, // Starting max altitude
+                    increment: 200 // Altitude increase per upgrade
+                }
+            };
+            
+            // Create upgrades UI
+            const upgradesPanel = document.createElement('div');
+            upgradesPanel.id = 'upgrades-panel';
+            upgradesPanel.style.position = 'absolute';
+            upgradesPanel.style.bottom = '10px';
+            upgradesPanel.style.right = '10px';
+            upgradesPanel.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            upgradesPanel.style.color = 'white';
+            upgradesPanel.style.padding = '10px';
+            upgradesPanel.style.borderRadius = '5px';
+            upgradesPanel.style.display = 'flex';
+            upgradesPanel.style.flexDirection = 'column';
+            upgradesPanel.style.gap = '8px';
+            upgradesPanel.style.maxWidth = '250px';
+            upgradesPanel.style.fontSize = '14px';
+            
+            // Create upgrade buttons
+            const createUpgradeButton = (type, label) => {
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.display = 'flex';
+                buttonContainer.style.justifyContent = 'space-between';
+                buttonContainer.style.alignItems = 'center';
+                
+                const buttonLabel = document.createElement('span');
+                buttonLabel.textContent = `${label}: ${upgrades[type].value}`;
+                buttonLabel.id = `${type}-value`;
+                
+                const button = document.createElement('button');
+                button.textContent = `Upgrade $20`;
+                button.style.padding = '4px 8px';
+                button.style.backgroundColor = '#0088ff';
+                button.style.color = 'white';
+                button.style.border = 'none';
+                button.style.borderRadius = '3px';
+                button.style.cursor = 'pointer';
+                
+                button.addEventListener('click', () => {
+                    if (playerMoney >= upgrades[type].cost) {
+                        playerMoney -= upgrades[type].cost;
+                        upgrades[type].level++;
+                        upgrades[type].value += upgrades[type].increment;
+                        
+                        // Update UI
+                        moneyValue.textContent = playerMoney;
+                        document.getElementById(`${type}-value`).textContent = `${label}: ${upgrades[type].value}`;
+                        
+                        // Update game values based on upgrade type
+                        if (type === 'speed') {
+                            // Speed is used directly in the animation loop
+                        } else if (type === 'capacity') {
+                            maxSpiceCapacity = upgrades.capacity.value;
+                            // Update max spice display
+                            document.getElementById('max-spice-value').textContent = maxSpiceCapacity;
+                        } else if (type === 'altitude') {
+                            // Max altitude is used directly in the animation loop
+                        }
+                    } else {
+                        // Flash the button red to indicate not enough money
+                        const originalColor = button.style.backgroundColor;
+                        button.style.backgroundColor = 'red';
+                        setTimeout(() => {
+                            button.style.backgroundColor = originalColor;
+                        }, 300);
+                    }
+                });
+                
+                buttonContainer.appendChild(buttonLabel);
+                buttonContainer.appendChild(button);
+                return buttonContainer;
+            };
+            
+            // Add upgrade buttons to panel
+            upgradesPanel.appendChild(createUpgradeButton('speed', 'Speed'));
+            upgradesPanel.appendChild(createUpgradeButton('capacity', 'Capacity'));
+            upgradesPanel.appendChild(createUpgradeButton('altitude', 'Max Altitude'));
+            
+            // Add panel to the container
+            document.getElementById('container').appendChild(upgradesPanel);
+            
+            // Function to find a random position at high altitude (in mountains)
+            function getRandomMountainPosition(quadrant) {
+                const position = new THREE.Vector3();
+                let found = false;
+                let attempts = 0;
+                const MIN_MOUNTAIN_HEIGHT = 400; // Minimum height to be considered a mountain
+                const quadrantBounds = {
+                    ne: { minX: 0, maxX: terrainSize/2, minZ: 0, maxZ: terrainSize/2 },
+                    nw: { minX: -terrainSize/2, maxX: 0, minZ: 0, maxZ: terrainSize/2 },
+                    sw: { minX: -terrainSize/2, maxX: 0, minZ: -terrainSize/2, maxZ: 0 },
+                    se: { minX: 0, maxX: terrainSize/2, minZ: -terrainSize/2, maxZ: 0 }
+                };
+                
+                const bounds = quadrantBounds[quadrant];
+                
+                while (!found && attempts < 100) {
+                    // Random position within the quadrant bounds
+                    const x = Math.random() * (bounds.maxX - bounds.minX) + bounds.minX;
+                    const z = Math.random() * (bounds.maxZ - bounds.minZ) + bounds.minZ;
+                    
+                    // Check the height at this position
+                    const raycaster = new THREE.Raycaster();
+                    raycaster.set(
+                        new THREE.Vector3(x, 5000, z),
+                        new THREE.Vector3(0, -1, 0)
+                    );
+                    const intersects = raycaster.intersectObject(terrain);
+                    
+                    if (intersects.length > 0) {
+                        const groundHeight = intersects[0].point.y;
+                        
+                        // We want bases to be on mountains but still accessible with starting altitude
+                        // Bases must be on mountains (>= 400 height) but below starting max altitude (600)
+                        if (groundHeight >= MIN_MOUNTAIN_HEIGHT && groundHeight <= upgrades.altitude.value - 100) {
+                            position.set(x, groundHeight, z);
+                            found = true;
+                        }
+                    }
+                    
+                    attempts++;
+                }
+                
+                // If we couldn't find a good spot after max attempts, fall back to a position in the center of the quadrant
+                if (!found) {
+                    const centerX = (bounds.minX + bounds.maxX) / 2;
+                    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+                    
+                    // Check height at center position
+                    const raycaster = new THREE.Raycaster();
+                    raycaster.set(
+                        new THREE.Vector3(centerX, 5000, centerZ),
+                        new THREE.Vector3(0, -1, 0)
+                    );
+                    const intersects = raycaster.intersectObject(terrain);
+                    
+                    // Default accessible mountain height
+                    let groundHeight = Math.min(500, upgrades.altitude.value - 100);
+                    
+                    if (intersects.length > 0) {
+                        // Ensure the height is between MIN_MOUNTAIN_HEIGHT and max accessible altitude
+                        const terrainHeight = intersects[0].point.y;
+                        if (terrainHeight >= MIN_MOUNTAIN_HEIGHT && terrainHeight <= upgrades.altitude.value - 100) {
+                            groundHeight = terrainHeight;
+                        } else if (terrainHeight < MIN_MOUNTAIN_HEIGHT) {
+                            groundHeight = MIN_MOUNTAIN_HEIGHT;
+                        } else {
+                            groundHeight = upgrades.altitude.value - 100;
+                        }
+                    }
+                    
+                    position.set(centerX, groundHeight, centerZ);
+                }
+                
+                return position;
+            }
+            
+            // Create blue bases for converting spice to money
+            function createBases() {
+                const bases = [];
+                const baseSize = 250; // Size of the base
+                const baseHeight = 50; // Height of the base
+                
+                // Create bases in each quadrant, positioned on mountains
+                const quadrants = ['ne', 'nw', 'sw', 'se'];
+                
+                quadrants.forEach(quadrant => {
+                    // Find a suitable mountain position in this quadrant
+                    const position = getRandomMountainPosition(quadrant);
+                    
+                    // Create base geometry
+                    const geometry = new THREE.BoxGeometry(baseSize, baseHeight, baseSize);
+                    const material = new THREE.MeshLambertMaterial({ 
+                        color: 0x0088ff,
+                        emissive: 0x0044aa,
+                        emissiveIntensity: 0.5
+                    });
+                    
+                    const base = new THREE.Mesh(geometry, material);
+                    
+                    // Position base at the mountain position (slightly above surface)
+                    base.position.set(position.x, position.y + baseHeight/2, position.z);
+                    
+                    // Add blue point light above the base
+                    const light = new THREE.PointLight(0x0088ff, 2, baseSize * 3);
+                    light.position.set(position.x, position.y + baseHeight + 100, position.z);
+                    
+                    scene.add(base);
+                    scene.add(light);
+                    
+                    // Store base for collision detection
+                    bases.push({
+                        mesh: base,
+                        light: light,
+                        position: new THREE.Vector3(position.x, position.y + baseHeight/2, position.z),
+                        size: baseSize,
+                        indicator: null
+                    });
+                });
+                
+                return bases;
+            }
+            
+            const bases = createBases();
+            
+            // Function to respawn a spice patch at a new location (color-based version)
+            function respawnSpicePatch(patch) {
+                // Get a new position
+                const newPosition = getRandomLowAltitudePosition();
+                
+                // Restore original colors for all affected vertices
+                const terrainColors = terrain.geometry.attributes.color.array;
+                
+                for (let i = 0; i < patch.affectedVertices.length; i++) {
+                    const colorIndex = patch.affectedVertices[i];
+                    const originalColor = patch.originalColors[i];
+                    
+                    terrainColors[colorIndex] = originalColor.r;
+                    terrainColors[colorIndex + 1] = originalColor.g;
+                    terrainColors[colorIndex + 2] = originalColor.b;
+                }
+                
+                // Clear the affected vertices and original colors arrays
+                patch.affectedVertices = [];
+                patch.originalColors = [];
+                
+                // Update position
+                patch.position.copy(newPosition);
+                
+                // Move the light
+                if (patch.light) {
+                    patch.light.position.set(newPosition.x, newPosition.y + 50, newPosition.z);
+                }
+                
+                // Reset spice data
+                patch.spiceAmount = Math.floor(Math.random() * 100) + 1;
+                patch.maxSpiceAmount = patch.spiceAmount;
+                patch.isBeingHarvested = false;
+                patch.pulsePhase = Math.random() * Math.PI * 2;
+                
+                // Find and color new vertices within radius
+                const terrainPositions = terrain.geometry.attributes.position.array;
+                
+                for (let j = 0; j < terrainPositions.length; j += 3) {
+                    const vertexX = terrainPositions[j];
+                    const vertexY = terrainPositions[j + 1];
+                    const vertexZ = terrainPositions[j + 2];
+                    
+                    // Calculate distance from patch center (XZ plane only)
+                    const dx = vertexX - newPosition.x;
+                    const dz = vertexZ - newPosition.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    
+                    // If vertex is within patch radius
+                    if (distance < patch.radius) {
+                        // Calculate falloff from center
+                        const falloff = 1 - (distance / patch.radius);
+                        
+                        // Store the color index and original color
+                        const colorIndex = j / 3 * 3;
+                        patch.affectedVertices.push(colorIndex);
+                        
+                        // Store original colors
+                        patch.originalColors.push({
+                            r: terrainColors[colorIndex],
+                            g: terrainColors[colorIndex + 1],
+                            b: terrainColors[colorIndex + 2]
+                        });
+                        
+                        // Change vertex color to reddish spice color
+                        terrainColors[colorIndex] = Math.min(1, terrainColors[colorIndex] * 0.3 + 0.7 * falloff); // Boost red
+                        terrainColors[colorIndex + 1] *= 0.6; // Reduce green
+                        terrainColors[colorIndex + 2] *= 0.4; // Reduce blue
+                    }
+                }
+                
+                // Mark colors as needing update
+                terrain.geometry.attributes.color.needsUpdate = true;
+                
+                // Remove any existing indicator
+                if (patch.indicator) {
+                    patch.indicator.remove();
+                    patch.indicator = null;
+                }
+            }
+            
+            // Function to update bases, check for spice conversion
+            function updateBases() {
+                // Check player proximity to each base
+                for (let i = 0; i < bases.length; i++) {
+                    const base = bases[i];
+                    
+                    // Calculate distance from player to base (horizontally)
+                    const horizontalDist = new THREE.Vector2(
+                        ship.position.x - base.position.x,
+                        ship.position.z - base.position.z
+                    ).length();
+                    
+                    // Calculate vertical distance from player to base
+                    const verticalDist = Math.abs(ship.position.y - base.position.y);
+                    
+                    // Create temporary HUD indicator when player is near a base
+                    if (horizontalDist < base.size * 2) {
+                        // If we don't already have an indicator for this base, create one
+                        if (!base.indicator) {
+                            const indicator = document.createElement('div');
+                            indicator.style.position = 'absolute';
+                            indicator.style.bottom = '60px';
+                            indicator.style.left = '50%';
+                            indicator.style.transform = 'translateX(-50%)';
+                            indicator.style.backgroundColor = 'rgba(0, 136, 255, 0.7)';
+                            indicator.style.color = 'white';
+                            indicator.style.padding = '10px';
+                            indicator.style.borderRadius = '5px';
+                            indicator.style.fontWeight = 'bold';
+                            indicator.style.fontSize = '14px';
+                            indicator.style.textAlign = 'center';
+                            
+                            document.getElementById('container').appendChild(indicator);
+                            base.indicator = indicator;
+                        }
+                        
+                        // Check if player is close enough to convert spice
+                        const isConverting = horizontalDist < base.size && verticalDist < 100;
+                        
+                        // Update indicator content
+                        base.indicator.textContent = isConverting ? 
+                            `THE GUILD THANKS YOU FOR YOUR DELIVERY!` : 
+                            'Land on base to convert spice to money!';
+                        
+                        // Set color based on whether converting
+                        if (isConverting) {
+                            base.indicator.style.backgroundColor = 'rgba(0, 255, 136, 0.7)';
+                            
+                            // Convert spice to money
+                            if (playerSpice > 0) {
+                                // Convert all spice to money (1:1 ratio)
+                                playerMoney += Math.floor(playerSpice);
+                                playerSpice = 0;
+                                
+                                // Update displays
+                                spiceValue.textContent = Math.floor(playerSpice);
+                                moneyValue.textContent = playerMoney;
+                                document.getElementById('max-spice-value').textContent = maxSpiceCapacity;
+                            }
+                        } else {
+                            base.indicator.style.backgroundColor = 'rgba(0, 136, 255, 0.7)';
+                        }
+                    } else if (base.indicator) {
+                        // Remove indicator if player moves away
+                        base.indicator.remove();
+                        base.indicator = null;
+                    }
+                }
+            }
+            
+            // Function to update spice patches, check for harvesting
+            function updateSpicePatches() {
+                // Harvesting rate (spice units per frame) - slowed down by 10x
+                const harvestRate = 0.05;
+                
+                // Get terrain colors for updating
+                const terrainColors = terrain.geometry.attributes.color.array;
+                
+                // For each spice patch
+                for (let i = 0; i < spicePatches.length; i++) {
+                    const patch = spicePatches[i];
+                    
+                    // Calculate distance from player to patch (horizontally)
+                    const horizontalDist = new THREE.Vector2(
+                        ship.position.x - patch.position.x,
+                        ship.position.z - patch.position.z
+                    ).length();
+                    
+                    // Calculate vertical distance from player to ground
+                    const verticalDist = Math.abs(ship.position.y - patch.position.y);
+                    
+                    // Update pulsating glow effect for the point light
+                    patch.pulsePhase += 0.05;
+                    const pulseIntensity = 2.5 + Math.sin(patch.pulsePhase) * 1.2;
+                    
+                    // Update light intensity for pulsating effect
+                    if (patch.light) {
+                        patch.light.intensity = pulseIntensity;
+                    }
+                    
+                    // Create temporary HUD indicator when player is near a patch
+                    if (horizontalDist < patch.radius * 1.2) {
+                        // If we don't already have an indicator for this patch, create one
+                        if (!patch.indicator) {
+                            const indicator = document.createElement('div');
+                            indicator.style.position = 'absolute';
+                            indicator.style.bottom = '10px';
+                            indicator.style.left = '50%';
+                            indicator.style.transform = 'translateX(-50%)';
+                            indicator.style.backgroundColor = 'rgba(255, 50, 0, 0.7)';
+                            indicator.style.color = 'white';
+                            indicator.style.padding = '10px';
+                            indicator.style.borderRadius = '5px';
+                            indicator.style.fontWeight = 'bold';
+                            indicator.style.fontSize = '14px';
+                            indicator.style.textAlign = 'center';
+                            
+                            document.getElementById('container').appendChild(indicator);
+                            patch.indicator = indicator;
+                        }
+                        
+                        // Update indicator content
+                        const harvestText = patch.isBeingHarvested ? 
+                            `THE SPICE MUST FLOW! (${Math.floor(patch.spiceAmount)} units remaining)` : 
+                            'Land close to harvest SPICE!';
+                        
+                        patch.indicator.textContent = harvestText;
+                        
+                        // Set color based on whether harvesting
+                        if (patch.isBeingHarvested) {
+                            patch.indicator.style.backgroundColor = 'rgba(0, 255, 0, 0.7)';
+                        } else {
+                            patch.indicator.style.backgroundColor = 'rgba(255, 50, 0, 0.7)';
+                        }
+                    } else if (patch.indicator) {
+                        // Remove indicator if player moves away
+                        patch.indicator.remove();
+                        patch.indicator = null;
+                    }
+                    
+                    // If player is within harvesting range (horizontally and vertically)
+                    if (horizontalDist < patch.radius && verticalDist < 100) {
+                        patch.isBeingHarvested = true;
+                        
+                        // Harvest spice if there's any left
+                        if (patch.spiceAmount > 0) {
+                            // Reduce patch spice
+                            patch.spiceAmount -= harvestRate;
+                            
+                            // Add to player's spice but limit to maxSpiceCapacity
+                            const harvestedAmount = harvestRate;
+                            playerSpice = Math.min(maxSpiceCapacity, playerSpice + harvestedAmount);
+                            totalSpiceHarvested += harvestedAmount;
+                            spiceValue.textContent = Math.floor(playerSpice);
+                            totalSpiceValue.textContent = Math.floor(totalSpiceHarvested);
+                            
+                            // Visual indicator - gradually fade the red color as harvested
+                            const harvestRatio = patch.spiceAmount / patch.maxSpiceAmount;
+                            
+                            // Update all affected vertices to reflect harvest progress
+                            for (let j = 0; j < patch.affectedVertices.length; j++) {
+                                const colorIndex = patch.affectedVertices[j];
+                                const originalColor = patch.originalColors[j];
+                                
+                                // Interpolate between spice color and original color based on harvest ratio
+                                terrainColors[colorIndex] = originalColor.r * (1 - harvestRatio) + 
+                                                            Math.min(1, 0.9 + originalColor.r * 0.2) * harvestRatio;
+                                terrainColors[colorIndex + 1] = originalColor.g * (1 - harvestRatio) + 
+                                                                Math.min(0.6, originalColor.g * 0.2 + 0.4) * harvestRatio;
+                                terrainColors[colorIndex + 2] = originalColor.b * (1 - harvestRatio) + 
+                                                                (originalColor.b * 0.2) * harvestRatio;
+                            }
+                            
+                            // Mark colors as needing update
+                            terrain.geometry.attributes.color.needsUpdate = true;
+                            
+                            // If patch is depleted, respawn it elsewhere
+                            if (patch.spiceAmount <= 0) {
+                                respawnSpicePatch(patch);
+                            }
+                        }
+                    } else {
+                        patch.isBeingHarvested = false;
+                    }
+                }
+            }
+
+            // Reset clipping plane to improve performance
+            const farClippingDistance = 20000;
+            camera.far = farClippingDistance;
+            camera.updateProjectionMatrix();
+
+        // Helicopter-style controls and physics
+        // Speed is now controlled by the upgrades system
+
+        // Camera rotation for looking around
+        let pitch = 0;
+        let yaw = 0;
+        
+        // Turn rate for A/D keys
+        const turnRate = 0.03;
+
+        // Track key states
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            w: false,
+            s: false,
+            a: false,
+            d: false,
+            q: false,
+            e: false,
+            ' ': false,
+            Shift: false,
+            r: false
+        };
+
+        // Set up mouse controls for looking around
+        let isDragging = false;
+        let previousMousePosition = {
+            x: 0,
+            y: 0
+        };
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Mouse events for look controls
+        document.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            previousMousePosition = {
+                x: e.clientX,
+                y: e.clientY
+            };
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+
+                // Apply camera rotation based on mouse movement
+                yaw -= deltaMove.x * 0.003;
+                pitch -= deltaMove.y * 0.003;
+                
+                // Limit pitch to prevent flipping
+                pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+
+                previousMousePosition = {
+                    x: e.clientX,
+                    y: e.clientY
+                };
+            }
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) {
+                keys[e.key] = false;
+            }
+        });
+
+        // Speed controls removed
+
+        // Create a segmented worm with connected cylinders
+        function createSandworm() {
+            const segments = 10; // Number of segments
+            const segmentRadius = 100; // Size of each segment (doubled from 50)
+            const wormParts = {
+                spheres: [],
+                cylinders: []
+            };
+            
+            // Create all segments (spheres)
+            for (let i = 0; i < segments; i++) {
+                // All segments are a darker brown color
+                const color = 0x8B4513;  // Dark brown
+                const emission = 0x3B2610;  // Even darker brown for emission
+                
+                const sphereGeometry = new THREE.SphereGeometry(
+                    // All segments including head are the same size
+                    segmentRadius, 
+                    32, 
+                    32
+                );
+                
+                const sphereMaterial = new THREE.MeshLambertMaterial({
+                    color: color,
+                    emissive: emission,
+                    emissiveIntensity: 0.5
+                });
+                
+                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                
+                // Initial position - line up the segments in a row
+                // Doubled spacing between segments
+                sphere.position.set(
+                    2000 + i * segmentRadius * 6, 
+                    100, 
+                    2000
+                );
+                
+                scene.add(sphere);
+                wormParts.spheres.push(sphere);
+                
+                // Create connecting cylinders between segments
+                if (i > 0) {
+                    const cylinderGeometry = new THREE.CylinderGeometry(
+                        segmentRadius, // Top radius (same as spheres)
+                        segmentRadius, // Bottom radius
+                        segmentRadius * 6,   // Length doubled (will be updated in animation)
+                        16,                  // Segments around
+                        1,                   // Segments along length
+                        false                // Open-ended?
+                    );
+                    
+                    // Rotate cylinder to align with x-axis
+                    cylinderGeometry.rotateZ(Math.PI / 2);
+                    
+                    const cylinderMaterial = new THREE.MeshLambertMaterial({
+                        color: 0x8B4513,     // Dark brown like body segments
+                        emissive: 0x3B2610,  // Even darker brown for emission
+                        emissiveIntensity: 0.3
+                    });
+                    
+                    const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                    
+                    // Position cylinder between current and previous segment
+                    // (Will be updated in animation) - doubled spacing
+                    cylinder.position.set(
+                        2000 + (i - 0.5) * segmentRadius * 6,
+                        100,
+                        2000
+                    );
+                    
+                    scene.add(cylinder);
+                    wormParts.cylinders.push(cylinder);
+                }
+            }
+            
+            return wormParts;
+        }
+        
+        // Create two worms on opposite sides of the map
+        const sandworm1 = createSandworm();
+        const sandworm2 = createSandworm();
+        
+        // Position second worm on the opposite side of the map
+        sandworm2.spheres.forEach(segment => {
+            segment.position.x *= -1;
+            segment.position.z *= -1;
+        });
+        
+        sandworm2.cylinders.forEach(cylinder => {
+            cylinder.position.x *= -1;
+            cylinder.position.z *= -1;
+        });
+        
+        // Simple state with speed and minimal spacing
+        const wormState = {
+            speed: 5, // Half of default player speed
+            minDistance: 240 // Minimum distance between segments (doubled to match larger worm)
+        };
+        
+            // Add HUD element for worm warning
+            const wormAlert = document.createElement('div');
+            wormAlert.id = 'worm-alert';
+            wormAlert.style.position = 'absolute';
+            wormAlert.style.top = '25%'; // Position at 1/4 from the top (3/4 up the screen)
+            wormAlert.style.left = '50%';
+            wormAlert.style.transform = 'translate(-50%, -50%)';
+            wormAlert.style.color = 'red';
+            wormAlert.style.fontFamily = 'Arial, sans-serif';
+            wormAlert.style.fontSize = '32px';
+            wormAlert.style.fontWeight = 'bold';
+            wormAlert.style.textShadow = '2px 2px 4px #000000';
+            wormAlert.style.padding = '15px';
+            wormAlert.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+            wormAlert.style.borderRadius = '10px';
+            wormAlert.style.display = 'none'; // Hide initially
+            wormAlert.style.zIndex = '100';
+            document.getElementById('container').appendChild(wormAlert);
+            
+            // Create sandstorm overlay
+            const sandstormOverlay = document.createElement('div');
+            sandstormOverlay.id = 'sandstorm-overlay';
+            sandstormOverlay.style.position = 'absolute';
+            sandstormOverlay.style.top = '0';
+            sandstormOverlay.style.left = '0';
+            sandstormOverlay.style.width = '100%';
+            sandstormOverlay.style.height = '100%';
+            sandstormOverlay.style.backgroundColor = 'rgba(219, 179, 119, 0)'; // Light sand color, initially transparent
+            sandstormOverlay.style.pointerEvents = 'none'; // Allow clicking through
+            // Much longer transition time for smoother changes
+            sandstormOverlay.style.transition = 'background-color 4s ease-in-out';
+            const OVERLAY_MAX_OPACITY = 0.05; // Ultra reduced overlay opacity
+            sandstormOverlay.style.zIndex = '50';
+            sandstormOverlay.style.display = 'none';
+            document.getElementById('container').appendChild(sandstormOverlay);
+            
+            
+            // Create storm warning
+            const stormAlert = document.createElement('div');
+            stormAlert.id = 'storm-alert';
+            stormAlert.style.position = 'absolute';
+            stormAlert.style.top = '35%';
+            stormAlert.style.left = '50%';
+            stormAlert.style.transform = 'translate(-50%, -50%)';
+            stormAlert.style.color = '#FFA500'; // Orange
+            stormAlert.style.fontFamily = 'Arial, sans-serif';
+            stormAlert.style.fontSize = '36px';
+            stormAlert.style.fontWeight = 'bold';
+            stormAlert.style.textShadow = '2px 2px 4px #000000';
+            stormAlert.style.padding = '15px';
+            stormAlert.style.width = '500px';
+            stormAlert.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+            stormAlert.style.borderRadius = '10px';
+            stormAlert.style.display = 'none';
+            stormAlert.style.zIndex = '101';
+            stormAlert.textContent = 'CORIOLIS STORM APPROACHING!';
+            document.getElementById('container').appendChild(stormAlert);
+            
+            // Clock for timing
+            const clock = new THREE.Clock();
+            
+            // Performance monitoring
+            const perfMonitor = {
+                fps: 0,
+                frameCount: 0,
+                lastFpsUpdate: 0,
+                timers: {},
+                results: {}
+            };
+            
+            // Create performance display
+            const perfDisplay = document.createElement('div');
+            perfDisplay.id = 'perf-display';
+            perfDisplay.style.position = 'absolute';
+            perfDisplay.style.bottom = '10px';
+            perfDisplay.style.left = '10px';
+            perfDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            perfDisplay.style.color = 'white';
+            perfDisplay.style.padding = '10px';
+            perfDisplay.style.borderRadius = '5px';
+            perfDisplay.style.fontFamily = 'monospace';
+            perfDisplay.style.fontSize = '12px';
+            perfDisplay.style.whiteSpace = 'pre';
+            document.getElementById('container').appendChild(perfDisplay);
+            
+            // Start timing a section
+            function startTimer(name) {
+                perfMonitor.timers[name] = window.performance.now();
+            }
+            
+            // End timing a section
+            function endTimer(name) {
+                if (perfMonitor.timers[name]) {
+                    const elapsed = window.performance.now() - perfMonitor.timers[name];
+                    perfMonitor.results[name] = elapsed;
+                    delete perfMonitor.timers[name];
+                }
+            }
+            
+            // Function to update camera clip plane based on altitude
+            function updateCameraClipPlane() {
+                // Adjust the far clipping plane based on ship height
+                // Higher altitude = see further
+                const baseDistance = 20000;
+                const heightFactor = Math.max(1, ship.position.y / 500);
+                camera.far = baseDistance * heightFactor;
+                camera.updateProjectionMatrix();
+            }
+            
+            // Direct terrain height lookup system
+            const terrainHeightLookup = {
+                // Initialize the lookup system with the terrain mesh
+                init: function(terrainMesh) {
+                    this.terrain = terrainMesh;
+                    this.terrainSize = terrainSize; // Using the global terrainSize
+                    this.resolution = resolution;   // Using the global resolution
+                    
+                    // Store the vertices array for quick access
+                    this.vertices = terrainMesh.geometry.attributes.position.array;
+                    
+                    // Calculate the step size between vertices
+                    this.gridStep = terrainSize / (resolution - 1);
+                    
+                    console.log(`Terrain height system initialized: size=${this.terrainSize}, resolution=${this.resolution}, step=${this.gridStep}`);
+                },
+                
+                // Convert world coordinates to grid indices
+                worldToGrid: function(x, z) {
+                    // Convert from world coordinates (centered at 0,0) to grid coordinates (0 to resolution-1)
+                    const halfSize = this.terrainSize / 2;
+                    const gridX = Math.floor((x + halfSize) / this.gridStep);
+                    const gridZ = Math.floor((z + halfSize) / this.gridStep);
+                    
+                    // Clamp to valid grid bounds
+                    return {
+                        x: Math.max(0, Math.min(this.resolution - 1, gridX)),
+                        z: Math.max(0, Math.min(this.resolution - 1, gridZ))
+                    };
+                },
+                
+                // Get height at a specific grid cell
+                getGridHeight: function(gridX, gridZ) {
+                    // Calculate the index in the vertices array
+                    // Each vertex has 3 values (x,y,z) and vertices are arranged in rows
+                    const index = (gridZ * this.resolution + gridX) * 3 + 1; // +1 for y-coordinate
+                    
+                    if (index >= 0 && index < this.vertices.length) {
+                        return this.vertices[index];
+                    }
+                    return 0; // Default if out of bounds
+                },
+                
+                // Bilinear interpolation between grid points for smoother height values
+                interpolate: function(x, z) {
+                    const halfSize = this.terrainSize / 2;
+                    const relX = (x + halfSize) / this.gridStep;
+                    const relZ = (z + halfSize) / this.gridStep;
+                    
+                    const gridX1 = Math.floor(relX);
+                    const gridZ1 = Math.floor(relZ);
+                    const gridX2 = Math.min(gridX1 + 1, this.resolution - 1);
+                    const gridZ2 = Math.min(gridZ1 + 1, this.resolution - 1);
+                    
+                    const fracX = relX - gridX1;
+                    const fracZ = relZ - gridZ1;
+                    
+                    // Get heights at the four surrounding grid points
+                    const h00 = this.getGridHeight(gridX1, gridZ1);
+                    const h10 = this.getGridHeight(gridX2, gridZ1);
+                    const h01 = this.getGridHeight(gridX1, gridZ2);
+                    const h11 = this.getGridHeight(gridX2, gridZ2);
+                    
+                    // Bilinear interpolation
+                    const h0 = h00 * (1 - fracX) + h10 * fracX;
+                    const h1 = h01 * (1 - fracX) + h11 * fracX;
+                    return h0 * (1 - fracZ) + h1 * fracZ;
+                },
+                
+                // Get height at any world position
+                getHeight: function(x, z) {
+                    return this.interpolate(x, z);
+                }
+            };
+            
+            // Initialize the terrain height lookup system now that it's defined
+            terrainHeightLookup.init(terrain);
+            
+            // Verify the lookup system is working with some test points
+            const testPositions = [
+                { x: 0, z: 0 },
+                { x: 1000, z: 1000 },
+                { x: -1000, z: -1000 },
+                { x: terrainSize/2 - 100, z: terrainSize/2 - 100 }
+            ];
+            
+            console.log("Terrain height lookup test:");
+            testPositions.forEach(pos => {
+                console.log(`Position (${pos.x}, ${pos.z}): height = ${terrainHeightLookup.getHeight(pos.x, pos.z)}`);
+            });
+            
+            // Create lightning effect during sandstorm
+            function createLightning() {
+                // Create a lightning flash
+                const flash = document.createElement('div');
+                flash.style.position = 'absolute';
+                flash.style.top = '0';
+                flash.style.left = '0';
+                flash.style.width = '100%';
+                flash.style.height = '100%';
+                flash.style.backgroundColor = 'rgba(255, 250, 205, 0.2)'; // Light yellow, less intense
+                flash.style.pointerEvents = 'none';
+                flash.style.zIndex = '52';
+                flash.style.opacity = '0';
+                document.getElementById('container').appendChild(flash);
+                
+                // Animate the flash
+                setTimeout(() => {
+                    flash.style.opacity = Math.random() * 0.15 + 0.05;
+                }, 0);
+                
+                setTimeout(() => {
+                    flash.style.opacity = '0';
+                }, 100);
+                
+                setTimeout(() => {
+                    flash.style.opacity = Math.random() * 0.2 + 0.1;
+                }, 150);
+                
+                setTimeout(() => {
+                    flash.style.opacity = '0';
+                    // Remove the element after the animation is complete
+                    setTimeout(() => {
+                        flash.remove();
+                    }, 100);
+                }, 250);
+            }
+            
+            
+            // Sandstorm state management
+            const sandstormState = {
+                active: false,
+                intensity: 0,
+                nextStormTime: 30, // Start first storm after 30 seconds
+                warningShown: false,
+                fogValue: 0,
+                fadeoutTimer: 0 // For gradual fog fadeout after storm ends
+            };
+            
+            // Function to manage sandstorm lifecycle
+            function updateSandstorm(deltaTime) {
+                // Update timer
+                if (!sandstormState.active) {
+                    // Handle fadeout phase if needed
+                    if (sandstormState.fadeoutTimer > 0) {
+                        // Gradually fade out the fog during fadeout timer
+                        sandstormState.fadeoutTimer -= deltaTime;
+                        const fadeRatio = sandstormState.fadeoutTimer / 8.0; // 8 seconds total fadeout
+                        sandstormState.fogValue = fadeRatio * 0.0008;
+                        scene.fog = new THREE.FogExp2(0x8B4513, sandstormState.fogValue);
+                        
+                        // When fadeout is complete, completely remove fog
+                        if (sandstormState.fadeoutTimer <= 0) {
+                            scene.fog = null;
+                            sandstormState.fadeoutTimer = 0;
+                        }
+                    }
+                    
+                    // Count down to next storm
+                    sandstormState.nextStormTime -= deltaTime;
+                    
+                    // Show warning 3 seconds before storm
+                    if (sandstormState.nextStormTime <= 3 && !sandstormState.warningShown) {
+                        stormAlert.style.display = 'block';
+                        sandstormState.warningShown = true;
+                        
+                        // Hide warning after 3 seconds
+                        setTimeout(() => {
+                            stormAlert.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    // Start a new storm
+                    if (sandstormState.nextStormTime <= 0) {
+                        // Begin the storm
+                        sandstormState.active = true;
+                        sandstormState.intensity = 0;
+                        sandstormState.duration = Math.random() * 20 + 10; // 10-30 seconds
+                        
+                        // Show the storm elements
+                        sandstormOverlay.style.display = 'block';
+                        
+                        // Reset warning state
+                        sandstormState.warningShown = false;
+                    }
+                } else {
+                    // Storm is active, count down duration
+                    sandstormState.duration -= deltaTime;
+                    
+                    // Always update fog and overlay based on current intensity
+                    // Ramp up intensity for first 8 seconds (very gradual)
+                    if (sandstormState.intensity < 1 && sandstormState.duration > sandstormState.duration - 8) {
+                        sandstormState.intensity += deltaTime / 8; // Much slower increase
+                        if (sandstormState.intensity > 1) sandstormState.intensity = 1;
+                    }
+                    
+                    // Ramp down intensity for last 8 seconds (very gradual)
+                    if (sandstormState.duration < 8) {
+                        sandstormState.intensity -= deltaTime / 8; // Much slower decrease
+                        if (sandstormState.intensity < 0) sandstormState.intensity = 0;
+                    }
+                    
+                    // Always update fog and overlay on every frame, regardless of ramp phase
+                    // This ensures continuous updates between ramp up and ramp down
+                    sandstormState.fogValue = sandstormState.intensity * 0.0008;
+                    scene.fog = new THREE.FogExp2(0x8B4513, sandstormState.fogValue);
+                    sandstormOverlay.style.backgroundColor = `rgba(219, 179, 119, ${sandstormState.intensity * 0.05})`;
+                    
+                    
+                    
+                    // Create lightning occasionally
+                    if (Math.random() < sandstormState.intensity * 0.02) {
+                        createLightning();
+                    }
+                    
+                    // End the storm
+                    if (sandstormState.duration <= 0) {
+                        // Instead of immediately stopping the storm, set up a gentle fadeout
+                        sandstormState.active = false;
+                        sandstormState.fadeoutTimer = 8.0; // 8 second fadeout
+                        
+                        // Don't clear fog yet - we'll gradually fade it in the fadeout phase
+                        
+                        // Set time until next storm (60 seconds for normal gameplay)
+                        sandstormState.nextStormTime = 60;
+                        
+                        // Fade overlay very gradually
+                        sandstormOverlay.style.backgroundColor = 'rgba(219, 179, 119, 0)';
+                        sandstormOverlay.style.transition = 'background-color 8s ease-out';
+                        
+                        // Hide overlay after transition completes
+                        setTimeout(() => {
+                            sandstormOverlay.style.display = 'none';
+                            // Reset transition to original value for next storm
+                            sandstormOverlay.style.transition = 'background-color 4s ease-in-out';
+                        }, 8000);
+                    }
+                }
+            }
+            
+            // Function to teleport a worm to a random far location
+            function teleportWorm(worm) {
+                // Generate a random angle
+                const angle = Math.random() * Math.PI * 2;
+                
+                // Distance from center - make sure it's very far (20000-25000 units away)
+                const distance = 20000 + Math.random() * 5000;
+                
+                // Calculate new position
+                const newX = Math.cos(angle) * distance;
+                const newZ = Math.sin(angle) * distance;
+                
+                // Teleport the head
+                worm.spheres[0].position.set(newX, 100, newZ);
+                
+                // Arrange other segments in a line behind the head
+                for (let i = 1; i < worm.spheres.length; i++) {
+                    // Place each segment behind the previous one
+                    const prevSegment = worm.spheres[i-1];
+                    const segment = worm.spheres[i];
+                    
+                    // Calculate direction away from center
+                    const directionX = -Math.cos(angle);
+                    const directionZ = -Math.sin(angle);
+                    
+                    // Position segment behind previous one
+                    segment.position.set(
+                        prevSegment.position.x + directionX * wormState.minDistance * 3,
+                        100,
+                        prevSegment.position.z + directionZ * wormState.minDistance * 3
+                    );
+                }
+                
+                // Update cylinders to match new segment positions
+                for (let i = 0; i < worm.cylinders.length; i++) {
+                    const cylinder = worm.cylinders[i];
+                    const startSphere = worm.spheres[i];
+                    const endSphere = worm.spheres[i+1];
+                    
+                    // Position cylinder at midpoint between spheres
+                    cylinder.position.lerpVectors(startSphere.position, endSphere.position, 0.5);
+                    
+                    // Calculate direction vector from end to start sphere
+                    const direction = new THREE.Vector3().subVectors(endSphere.position, startSphere.position);
+                    const distance = direction.length();
+                    
+                    // Scale cylinder to match distance between spheres
+                    cylinder.scale.x = distance / (100 * 6);
+                    
+                    // Orient cylinder to point from start to end sphere
+                    if (distance > 0.001) {
+                        const quaternion = new THREE.Quaternion();
+                        const xAxis = new THREE.Vector3(1, 0, 0);
+                        const normalizedDirection = direction.clone().normalize();
+                        quaternion.setFromUnitVectors(xAxis, normalizedDirection);
+                        cylinder.quaternion.copy(quaternion);
+                    }
+                }
+            }
+            
+            // Function to update segmented sandworm
+            function updateSandworm(worm, deltaTime) {
+                // Calculate distance to player
+                const distanceToPlayer = ship.position.distanceTo(worm.spheres[0].position);
+                const chaseRadius = 1000; // Distance at which worm starts actively chasing upward
+                
+                // Set target based on distance to player
+                let headTarget;
+                if (distanceToPlayer < chaseRadius) {
+                    // If close enough, chase directly at player (including Z height)
+                    headTarget = ship.position.clone();
+                } else {
+                    // Otherwise return to ground level - but if we're above ground, 
+                    // aim sharply downward instead of just horizontally
+                    if (worm.spheres[0].position.y > 150) {
+                        // Calculate position directly below worm head
+                        headTarget = new THREE.Vector3(
+                            worm.spheres[0].position.x, 
+                            100, 
+                            worm.spheres[0].position.z
+                        );
+                    } else {
+                        // Once closer to ground, resume normal tracking
+                        headTarget = new THREE.Vector3(ship.position.x, 100, ship.position.z);
+                    }
+                }
+                
+                const headDirection = new THREE.Vector3().subVectors(
+                    headTarget,
+                    worm.spheres[0].position
+                ).normalize();
+                
+                // Move head at constant speed (no resetting position)
+                // Adjust for proper speed units (matching the player speed scale)
+                worm.spheres[0].position.add(
+                    headDirection.multiplyScalar(wormState.speed)
+                );
+                
+                // Now update each body segment to follow the one in front
+                for (let i = 1; i < worm.spheres.length; i++) {
+                    const segment = worm.spheres[i];
+                    const target = worm.spheres[i-1].position;
+                    
+                    // Direction to the segment in front
+                    const direction = new THREE.Vector3().subVectors(
+                        target,
+                        segment.position
+                    );
+                    
+                    const distanceToTarget = direction.length();
+                    
+                    // Only move if we're farther than the minimum distance
+                    if (distanceToTarget > wormState.minDistance) {
+                        // Normalize direction and move at the same speed
+                        direction.normalize();
+                        segment.position.add(
+                            direction.multiplyScalar(wormState.speed * 1.2)
+                        );
+                    }
+                }
+                
+                // Update cylinders to connect the spheres
+                for (let i = 0; i < worm.cylinders.length; i++) {
+                    const cylinder = worm.cylinders[i];
+                    const startSphere = worm.spheres[i];
+                    const endSphere = worm.spheres[i+1];
+                    
+                    // Calculate position and length
+                    const startPos = startSphere.position;
+                    const endPos = endSphere.position;
+                    
+                    // Position cylinder at midpoint between spheres
+                    cylinder.position.lerpVectors(startPos, endPos, 0.5);
+                    
+                    // Calculate direction vector from end to start sphere
+                    const direction = new THREE.Vector3().subVectors(endPos, startPos);
+                    const distance = direction.length();
+                    
+                    // Scale cylinder to match distance between spheres
+                    cylinder.scale.x = distance / (100 * 6); // Adjust based on new cylinder length (100 * 6)
+                    
+                    // Orient cylinder to point from start to end sphere
+                    if (distance > 0.001) { // Avoid division by zero
+                        // Create a new quaternion that orients along the direction
+                        const quaternion = new THREE.Quaternion();
+                        
+                        // Create a rotation that takes the cylinder from its default orientation
+                        // (which is already rotated to align with X axis in geometry creation)
+                        // to the direction between the spheres
+                        const xAxis = new THREE.Vector3(1, 0, 0);
+                        const normalizedDirection = direction.clone().normalize();
+                        
+                        quaternion.setFromUnitVectors(xAxis, normalizedDirection);
+                        cylinder.quaternion.copy(quaternion);
+                    }
+                }
+            }
+            
+            // Track animation frame for game over cancellation
+            let animationFrameId;
+            
+            // Animation loop
+            function animate() {
+                animationFrameId = requestAnimationFrame(animate);
+                
+                // Start frame timing
+                const frameStartTime = window.performance.now();
+                
+                // Get delta time for smooth animations
+                const deltaTime = clock.getDelta();
+                
+                // Track FPS
+                perfMonitor.frameCount++;
+                const now = Date.now();
+                if (now > perfMonitor.lastFpsUpdate + 1000) { // Update every second
+                    perfMonitor.fps = Math.round((perfMonitor.frameCount * 1000) / (now - perfMonitor.lastFpsUpdate));
+                    perfMonitor.frameCount = 0;
+                    perfMonitor.lastFpsUpdate = now;
+                }
+                
+                // Adjust camera clip plane based on altitude
+                startTimer('cameraClip');
+                updateCameraClipPlane();
+                endTimer('cameraClip');
+            
+                // Update controls to make A/D turn instead of strafe
+                const moveSpeed = upgrades.speed.value;
+                
+                // A/D now change the yaw (turn) rather than strafing
+                if (keys.a || keys.ArrowLeft) yaw += turnRate;
+                if (keys.d || keys.ArrowRight) yaw -= turnRate;
+                
+                // Update both sandworms
+                startTimer('sandworms');
+                updateSandworm(sandworm1, deltaTime);
+                updateSandworm(sandworm2, deltaTime);
+                
+                // Check if worms are too close to each other
+                const wormHeadDistance = sandworm1.spheres[0].position.distanceTo(sandworm2.spheres[0].position);
+                if (wormHeadDistance < 4000) {
+                    // Determine which worm is farther from player
+                    const distanceToWorm1 = ship.position.distanceTo(sandworm1.spheres[0].position);
+                    const distanceToWorm2 = ship.position.distanceTo(sandworm2.spheres[0].position);
+                    
+                    // Teleport the worm that's farther from the player
+                    if (distanceToWorm1 > distanceToWorm2) {
+                        teleportWorm(sandworm1);
+                    } else {
+                        teleportWorm(sandworm2);
+                    }
+                }
+                endTimer('sandworms');
+                
+                // Update sandstorm
+                startTimer('sandstorm');
+                updateSandstorm(deltaTime);
+                endTimer('sandstorm');
+                
+                // Update spice patches and check for harvesting
+                startTimer('spicePatches');
+                updateSpicePatches();
+                endTimer('spicePatches');
+                
+                // Update bases and check for spice conversion
+                startTimer('bases');
+                updateBases();
+                endTimer('bases');
+                
+                // Check distance to both worm heads
+                const wormAlert = document.getElementById('worm-alert');
+                const distanceToWorm1 = Math.floor(ship.position.distanceTo(sandworm1.spheres[0].position));
+                const distanceToWorm2 = Math.floor(ship.position.distanceTo(sandworm2.spheres[0].position));
+                
+                // Find the closer worm
+                const closerWormDistance = Math.min(distanceToWorm1, distanceToWorm2);
+                const closerWorm = distanceToWorm1 < distanceToWorm2 ? sandworm1 : sandworm2;
+                
+                // Show warning if either worm is close
+                if (closerWormDistance < 1500) {
+                    wormAlert.textContent = 'WORMSIGN DETECTED!';
+                    // Make the warning flash
+                    wormAlert.style.display = 'block';
+                    wormAlert.style.opacity = Math.floor(Date.now() / 250) % 2 === 0 ? '1' : '0.3';
+                    // Make color more intense as worm gets closer
+                    const intensity = Math.max(0, Math.min(1, (1500 - closerWormDistance) / 1000));
+                    const red = Math.floor(255 * (0.8 + intensity * 0.2));
+                    wormAlert.style.color = `rgb(${red}, 0, 0)`;
+                } else {
+                    // Completely hide when not active
+                    wormAlert.style.display = 'none';
+                }
+                
+                // Check for worm collision with either worm (game over)
+                if (closerWormDistance < 150) {
+                    // Game over - stop animation and show message
+                    cancelAnimationFrame(animationFrameId);
+                    
+                    // Create game over overlay
+                    const gameOverDiv = document.createElement('div');
+                    gameOverDiv.style.position = 'absolute';
+                    gameOverDiv.style.top = '0';
+                    gameOverDiv.style.left = '0';
+                    gameOverDiv.style.width = '100%';
+                    gameOverDiv.style.height = '100%';
+                    gameOverDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                    gameOverDiv.style.color = '#ff0000';
+                    gameOverDiv.style.display = 'flex';
+                    gameOverDiv.style.flexDirection = 'column';
+                    gameOverDiv.style.justifyContent = 'center';
+                    gameOverDiv.style.alignItems = 'center';
+                    gameOverDiv.style.fontSize = '48px';
+                    gameOverDiv.style.fontWeight = 'bold';
+                    gameOverDiv.style.zIndex = '1000';
+                    
+                    // Game over text
+                    gameOverDiv.innerHTML = `
+                        <div>GAME OVER</div>
+                        <div style="font-size: 24px; margin-top: 20px;">Your ship was eaten by Shai Halud</div>
+                        <div style="font-size: 24px; margin-top: 20px;">Total spice harvested: ${Math.floor(totalSpiceHarvested)}</div>
+                        <button id="restart-button" style="margin-top: 30px; padding: 10px 20px; font-size: 24px; background-color: #ff4400; color: white; border: none; border-radius: 5px; cursor: pointer;">Restart Game</button>
+                    `;
+                    
+                    document.getElementById('container').appendChild(gameOverDiv);
+                    
+                    // Add restart button functionality
+                    document.getElementById('restart-button').addEventListener('click', function() {
+                        location.reload();
+                    });
+                    
+                    return; // Stop the rest of the animation function
+                }
+                
+                // This section is removed as we're using the flashing warning above
+                
+                // Ship movement and physics
+                startTimer('shipMovement');
+                
+                // Store current position before any movement
+                const previousPosition = ship.position.clone();
+                
+                // Create direction vectors based on ship orientation
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.quaternion);
+                const up = new THREE.Vector3(0, 1, 0);
+                
+                // Move the ship instead of the camera
+                // Forward/backward movement
+                if (keys.w || keys.ArrowUp) ship.position.add(forward.clone().multiplyScalar(moveSpeed));
+                if (keys.s || keys.ArrowDown) ship.position.add(forward.clone().multiplyScalar(-moveSpeed));
+                
+                // Up/down movement with E/Q keys
+                if (keys.e) ship.position.add(up.clone().multiplyScalar(moveSpeed));
+                if (keys.q) ship.position.add(up.clone().multiplyScalar(-moveSpeed));
+                
+                // Enforce max height limit based on upgrades
+                const maxAltitude = upgrades.altitude.value;
+                if (ship.position.y > maxAltitude) {
+                    ship.position.y = maxAltitude;
+                }
+                
+                endTimer('shipMovement');
+                
+                // Collision detection
+                startTimer('collision');
+                
+                // Horizontal collision detection
+                startTimer('collision_horizontal');
+                
+                // Check horizontal movement for collision with mountains
+                const horizontalMove = new THREE.Vector3(
+                    ship.position.x - previousPosition.x,
+                    0, // Ignore vertical component for this check
+                    ship.position.z - previousPosition.z
+                );
+                
+                if (horizontalMove.length() > 0) {
+                    // Get the terrain height at our current position plus a bit ahead in our direction
+                    const moveDir = horizontalMove.clone().normalize();
+                    const checkDistance = 100; // Look 100 units ahead
+                    
+                    const checkX = ship.position.x + moveDir.x * checkDistance;
+                    const checkZ = ship.position.z + moveDir.z * checkDistance;
+                    
+                    // Get the terrain height at this position using direct lookup
+                    const terrainHeight = terrainHeightLookup.getHeight(checkX, checkZ);
+                    
+                    // If the terrain is higher than our current altitude, we'll hit something
+                    if (terrainHeight > ship.position.y - 20) { // 20 is a safety margin
+                        // Hit a mountain, reset to previous position
+                        ship.position.copy(previousPosition);
+                    }
+                }
+                
+                endTimer('collision_horizontal');
+                
+                // Vertical collision detection (ground height check)
+                startTimer('collision_vertical');
+                
+                // Get terrain height directly from our lookup system
+                const groundHeight = terrainHeightLookup.getHeight(ship.position.x, ship.position.z);
+                const minAltitude = groundHeight + 100; // Hover 100 units above ground
+                
+                // If terrain is too high (above max altitude), reset position completely
+                if (minAltitude > maxAltitude) {
+                    ship.position.copy(previousPosition);
+                } else {
+                    // Ensure we're above ground
+                    if (ship.position.y < minAltitude) {
+                        ship.position.y = minAltitude;
+                    }
+                }
+                
+                endTimer('collision_vertical');
+                endTimer('collision');
+                
+                // Use spacebar and shift to move up and down
+                if (keys[' ']) {
+                    ship.position.add(up.clone().multiplyScalar(moveSpeed));
+                }
+                if (keys.Shift) {
+                    ship.position.add(up.clone().multiplyScalar(-moveSpeed));
+                }
+                
+                // Limit pitch to prevent flipping
+                pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+                
+                // Rotate the ship based on controls
+                ship.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+                
+                // Position the camera behind the ship (3rd person)
+                // Calculate the position behind the ship based on the ship's orientation
+                const cameraOffset = new THREE.Vector3(0, 100, 200);
+                cameraOffset.applyQuaternion(ship.quaternion);
+                camera.position.copy(ship.position).add(cameraOffset);
+                
+                // Make the camera look at the ship
+                camera.lookAt(ship.position);
+                
+                // Prevent going below "sea level"
+                if (ship.position.y < 50) {
+                    ship.position.y = 50;
+                }
+                
+                // Update dust particles
+                startTimer('particles');
+                
+                // Update dust particles position relative to ship
+                const positions = dustParticles.geometry.attributes.position.array;
+                const velocities = dustParticles.userData.velocities;
+                
+                // Set wind speed multiplier based on sandstorm state (doubled from before)
+                dustParticles.userData.windSpeedMultiplier = sandstormState.active ? 20 : 2;
+                const windSpeed = 0.3 * dustParticles.userData.windSpeedMultiplier;
+                
+                for (let i = 0; i < positions.length; i += 3) {
+                    const x = positions[i];
+                    const y = positions[i + 1];
+                    const z = positions[i + 2];
+                    
+                    // Move particles based on wind velocity
+                    positions[i] += velocities[i] * windSpeed;
+                    positions[i + 1] += velocities[i + 1] * windSpeed;
+                    positions[i + 2] += velocities[i + 2] * windSpeed;
+                    
+                    // Calculate distance from ship
+                    const dx = positions[i] - ship.position.x;
+                    const dy = positions[i + 1] - ship.position.y;
+                    const dz = positions[i + 2] - ship.position.z;
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    
+                    // If particle is too far, reposition it near the ship
+                    if (distance > 1500) {
+                        const radius = Math.random() * 1000 + 500;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.random() * Math.PI - Math.PI / 2;
+                        
+                        positions[i] = ship.position.x + radius * Math.cos(theta) * Math.cos(phi);
+                        positions[i + 1] = ship.position.y + radius * Math.sin(phi);
+                        positions[i + 2] = ship.position.z + radius * Math.sin(theta) * Math.cos(phi);
+                        
+                        // Reset velocity for new particle using the base wind direction (horizontal only)
+                        const baseWind = dustParticles.userData.baseWindDirection;
+                        velocities[i] = baseWind.x + (Math.random() * 0.2 - 0.1);
+                        velocities[i+1] = 0; // No vertical movement
+                        velocities[i+2] = baseWind.z + (Math.random() * 0.2 - 0.1);
+                    }
+                }
+                dustParticles.geometry.attributes.position.needsUpdate = true;
+                
+                endTimer('particles');
+                
+                // Fix for view distance - update frustum culling on each frame
+                camera.updateMatrixWorld();
+                camera.updateProjectionMatrix();
+                
+                // Render the scene
+                startTimer('render');
+                renderer.render(scene, camera);
+                endTimer('render');
+                
+                // Calculate total frame time
+                const frameTime = window.performance.now() - frameStartTime;
+                perfMonitor.results['total'] = frameTime;
+                
+                // Update performance display
+                if (now > perfMonitor.lastFpsUpdate) {
+                    // Format all times to fixed decimal places for consistent display
+                    const formatTime = (time) => time ? time.toFixed(2) : '0.00';
+                    
+                    let displayText = `FPS: ${perfMonitor.fps}\n`;
+                    displayText += `Frame: ${formatTime(perfMonitor.results.total)} ms\n`;
+                    displayText += `Render: ${formatTime(perfMonitor.results.render)} ms\n`;
+                    displayText += `Collision: ${formatTime(perfMonitor.results.collision)} ms\n`;
+                    displayText += `  → Horiz: ${formatTime(perfMonitor.results.collision_horizontal)} ms\n`;
+                    displayText += `  → Vert: ${formatTime(perfMonitor.results.collision_vertical)} ms\n`;
+                    displayText += `Worms: ${formatTime(perfMonitor.results.sandworms)} ms\n`;
+                    displayText += `Particles: ${formatTime(perfMonitor.results.particles)} ms\n`;
+                    displayText += `Spice: ${formatTime(perfMonitor.results.spicePatches)} ms\n`;
+                    displayText += `Bases: ${formatTime(perfMonitor.results.bases)} ms\n`;
+                    
+                    perfDisplay.textContent = displayText;
+                }
+            }
+
+        // Set initial ship position, respecting max altitude
+        ship.position.set(0, upgrades.altitude.value, 0);
+        
+        // Initialize animation
+        animate();
+    </script>
+</body>
+</html>

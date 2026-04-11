@@ -1,0 +1,248 @@
+---
+permalink: /pipe-screensaver.html
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Pipes Screensaver with Reset and Rotation</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <script>
+        const PIPE_RADIUS = 0.1;
+        const PIPE_SEGMENTS = 8;
+        const MIN_STRAIGHT_DISTANCE = PIPE_RADIUS * 10;
+        const TURN_CHANCE = 0.06;
+        const BALL_JOINT_CHANCE = 0.25;
+        const BALL_JOINT_SCALE = 1.2;
+        const RESET_INTERVAL = 30000; // 30 seconds in milliseconds
+        const CAMERA_ROTATION_SPEED = 0.001;
+        const MAX_BOUNDARY = 4.0;
+
+        class Pipe {
+            constructor(scene) {
+                this.scene = scene;
+                this.position = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2 * MAX_BOUNDARY,
+                    (Math.random() - 0.5) * 2 * MAX_BOUNDARY,
+                    (Math.random() - 0.5) * 2 * MAX_BOUNDARY
+                );
+                this.direction = this.randomDirection();
+                this.color = new THREE.Color(3*Math.random(), Math.random(), Math.random());
+                this.distanceSinceTurn = 0;
+                this.segments = [];
+                this.ballJoints = [];
+                this.material = new THREE.MeshPhongMaterial({ color: this.color });
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+
+                // Add initial ball joint
+                this.addBallJoint(this.position.clone());
+
+                // Start the first segment from the initial ball joint
+                this.addSegment(this.position.clone(), this.direction.clone());
+            }
+
+            randomDirection() {
+                const directions = [
+                    new THREE.Vector3(1, 0, 0),
+                    new THREE.Vector3(-1, 0, 0),
+                    new THREE.Vector3(0, 1, 0),
+                    new THREE.Vector3(0, -1, 0),
+                    new THREE.Vector3(0, 0, 1),
+                    new THREE.Vector3(0, 0, -1)
+                ];
+                return directions[Math.floor(Math.random() * directions.length)].clone();
+            }
+
+            move() {
+                const speed = 0.1;
+                const newPosition = this.position.clone().add(this.direction.clone().multiplyScalar(speed));
+                
+                this.position.copy(newPosition);
+                this.distanceSinceTurn += speed;
+                this.updateLastSegment();
+
+                // erik's addition: uncomment to make the boundary checking "strict"
+                const outOfBounds = Math.abs(this.position.x) >= MAX_BOUNDARY || Math.abs(this.position.y) >= MAX_BOUNDARY || Math.abs(this.position.z) >= MAX_BOUNDARY;
+                // const outOfBounds = false;
+                if (this.distanceSinceTurn >= MIN_STRAIGHT_DISTANCE && ((Math.random() < TURN_CHANCE) || outOfBounds)) {
+                    this.turn();
+                }
+            }
+
+            turn() {
+                let possibleDirections = [
+                    new THREE.Vector3(1, 0, 0),
+                    new THREE.Vector3(-1, 0, 0),
+                    new THREE.Vector3(0, 1, 0),
+                    new THREE.Vector3(0, -1, 0),
+                    new THREE.Vector3(0, 0, 1),
+                    new THREE.Vector3(0, 0, -1)
+                ].filter(dir => !dir.equals(this.direction) && !dir.equals(this.direction.clone().negate()));
+
+                possibleDirections = possibleDirections.filter(dir => {
+                    const testPosition = this.position.clone().add(dir);
+                    return (Math.abs(testPosition.x) <= Math.abs(this.position.x) || Math.abs(testPosition.x) <= MAX_BOUNDARY) &&
+                           (Math.abs(testPosition.y) <= Math.abs(this.position.y) || Math.abs(testPosition.y) <= MAX_BOUNDARY) &&
+                           (Math.abs(testPosition.z) <= Math.abs(this.position.z) || Math.abs(testPosition.z) <= MAX_BOUNDARY);
+                });
+
+                if (possibleDirections.length > 0) {
+                    const newDirection = possibleDirections[Math.floor(Math.random() * possibleDirections.length)].clone();
+                    
+                    const isBallJoint = Math.random() < BALL_JOINT_CHANCE;
+                    
+                    if (isBallJoint) {
+                        this.shortenLastSegment(0);
+                        this.addBallJoint(this.position.clone());
+                        // Start a new segment from the center of the ball joint
+                        this.addSegment(this.position.clone(), newDirection);
+                    } else {
+                        // For smooth turns, shorten the last segment by the corner radius
+                        const cornerRadius = PIPE_RADIUS * 2;
+                        this.shortenLastSegment(cornerRadius);
+                        
+                        // Add the smooth corner
+                        this.addCorner(this.position.clone(), this.direction.clone(), newDirection, cornerRadius);
+                        
+                        // Start a new segment from the end of the corner
+                        const cornerEndPosition = this.position.clone().add(newDirection.clone().multiplyScalar(cornerRadius));
+                        this.addSegment(cornerEndPosition, newDirection);
+                    }
+                    
+                    this.direction = newDirection;
+                    this.distanceSinceTurn = 0;
+                }
+            }
+
+            addSegment(startPosition, direction) {
+                const segment = {
+                    startPosition: startPosition,
+                    direction: direction,
+                    mesh: this.createCylinderMesh(startPosition, direction, 0.1) // Initial length
+                };
+                this.segments.push(segment);
+                this.group.add(segment.mesh);
+            }
+
+            updateLastSegment() {
+                const lastSegment = this.segments[this.segments.length - 1];
+                const length = this.position.distanceTo(lastSegment.startPosition);
+                this.group.remove(lastSegment.mesh);
+                lastSegment.mesh = this.createCylinderMesh(lastSegment.startPosition, lastSegment.direction, length);
+                this.group.add(lastSegment.mesh);
+            }
+
+            shortenLastSegment(amount) {
+                const lastSegment = this.segments[this.segments.length - 1];
+                const newEndPosition = this.position.clone().sub(this.direction.clone().multiplyScalar(amount));
+                const newLength = newEndPosition.distanceTo(lastSegment.startPosition);
+                this.group.remove(lastSegment.mesh);
+                lastSegment.mesh = this.createCylinderMesh(lastSegment.startPosition, lastSegment.direction, newLength);
+                this.group.add(lastSegment.mesh);
+            }
+
+            createCylinderMesh(startPosition, direction, length) {
+                const geometry = new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS, length, PIPE_SEGMENTS);
+                const mesh = new THREE.Mesh(geometry, this.material);
+                mesh.position.copy(startPosition).add(direction.clone().multiplyScalar(length / 2));
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+                return mesh;
+            }
+
+            addCorner(position, fromDirection, toDirection, radius) {
+                const cornerCurve = new THREE.QuadraticBezierCurve3(
+                    position.clone().sub(fromDirection.clone().multiplyScalar(radius)),
+                    position,
+                    position.clone().add(toDirection.clone().multiplyScalar(radius))
+                );
+                const cornerGeometry = new THREE.TubeGeometry(cornerCurve, 8, PIPE_RADIUS, PIPE_SEGMENTS, false);
+                const cornerMesh = new THREE.Mesh(cornerGeometry, this.material);
+                this.group.add(cornerMesh);
+            }
+
+            addBallJoint(position) {
+                const geometry = new THREE.SphereGeometry(PIPE_RADIUS * BALL_JOINT_SCALE, PIPE_SEGMENTS, PIPE_SEGMENTS);
+                const joint = new THREE.Mesh(geometry, this.material);
+                joint.position.copy(position);
+                this.group.add(joint);
+                this.ballJoints.push(joint);
+            }
+
+            remove() {
+                this.scene.remove(this.group);
+            }
+        }
+
+        // Main application
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.z = 10;
+
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+
+        let pipes = [];
+
+        function createPipes() {
+            // Remove existing pipes
+            pipes.forEach(pipe => pipe.remove());
+            pipes = [];
+
+            // Create new pipes
+            const pipeCount = Math.floor(Math.random() * 9) + 2; // Random number between 2 and 10
+            for (let i = 0; i < pipeCount; i++) {
+                pipes.push(new Pipe(scene));
+            }
+        }
+
+        createPipes();
+
+        let lastResetTime = Date.now();
+        let angle = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Check if it's time to reset
+            if (Date.now() - lastResetTime > RESET_INTERVAL) {
+                createPipes();
+                lastResetTime = Date.now();
+            }
+
+            pipes.forEach(pipe => pipe.move());
+
+            // Rotate the camera
+            angle += CAMERA_ROTATION_SPEED;
+            camera.position.x = Math.sin(angle) * 10;
+            camera.position.z = Math.cos(angle) * 10;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

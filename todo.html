@@ -1,0 +1,566 @@
+---
+permalink: /todo
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border-color: #cccccc;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --border-color: #333333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        #new-todo {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+
+        #todo-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 0;
+            cursor: move;
+            transition: opacity 0.2s;
+        }
+
+        .todo-item.dragging {
+            opacity: 0.5;
+        }
+
+        .todo-item.drag-over {
+            border-top: 2px solid var(--text-color);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5px, -3px); }
+            20% { transform: translate(5px, 3px); }
+            30% { transform: translate(-5px, 3px); }
+            40% { transform: translate(5px, -3px); }
+            50% { transform: translate(-5px, -3px); }
+            60% { transform: translate(5px, 3px); }
+            70% { transform: translate(-5px, 3px); }
+            80% { transform: translate(5px, -3px); }
+            90% { transform: translate(-5px, -3px); }
+        }
+
+        .todo-item.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        .todo-item input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .todo-text {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 16px;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        .todo-text.bold {
+            font-weight: bold;
+        }
+
+        .todo-text.completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            opacity: 0.5;
+            padding: 5px;
+        }
+
+        .delete-btn:hover {
+            opacity: 1;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="confetti-canvas"></canvas>
+    <div class="container">
+        <div class="input-container">
+            <input 
+                type="text" 
+                id="new-todo" 
+                placeholder="Add a new todo..." 
+                onkeypress="handleNewTodoKeyPress(event)"
+            >
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+        </div>
+        <ul id="todo-list"></ul>
+    </div>
+
+    <script>
+        let todos = [];
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let confettiParticles = [];
+        let draggedItem = null;
+
+        // Create ding sound
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        function playDing() {
+            // First ding
+            const oscillator1 = audioContext.createOscillator();
+            const gainNode1 = audioContext.createGain();
+            
+            oscillator1.connect(gainNode1);
+            gainNode1.connect(audioContext.destination);
+            
+            oscillator1.frequency.value = 880;
+            oscillator1.type = 'sine';
+            
+            gainNode1.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator1.start(audioContext.currentTime);
+            oscillator1.stop(audioContext.currentTime + 0.2);
+            
+            // Second ding (higher pitch)
+            const oscillator2 = audioContext.createOscillator();
+            const gainNode2 = audioContext.createGain();
+            
+            oscillator2.connect(gainNode2);
+            gainNode2.connect(audioContext.destination);
+            
+            oscillator2.frequency.value = 1100;
+            oscillator2.type = 'sine';
+            
+            gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime + 0.25);
+            gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.55);
+            
+            oscillator2.start(audioContext.currentTime + 0.25);
+            oscillator2.stop(audioContext.currentTime + 0.55);
+        }
+
+        function playEpicDing() {
+            const frequencies = [880, 990, 1100, 1320, 1540];
+            frequencies.forEach((freq, i) => {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = freq;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                }, i * 500);
+            });
+        }
+
+        // Load todos from localStorage
+        function loadTodos() {
+            const stored = localStorage.getItem('todos');
+            if (stored) {
+                todos = JSON.parse(stored);
+                renderTodos();
+            }
+        }
+
+        // Save todos to localStorage
+        function saveTodos() {
+            localStorage.setItem('todos', JSON.stringify(todos));
+        }
+
+        // Load theme preference
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        // Toggle theme
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Handle new todo input
+        function handleNewTodoKeyPress(event) {
+            if (event.key === 'Enter' && event.target.value.trim()) {
+                const text = event.target.value.trim();
+                todos.push({
+                    id: Date.now(),
+                    text: text,
+                    completed: false,
+                    indent: 0
+                });
+                event.target.value = '';
+                saveTodos();
+                renderTodos();
+            }
+        }
+
+        // Render todos
+        function renderTodos() {
+            const todoList = document.getElementById('todo-list');
+            todoList.innerHTML = '';
+            
+            todos.forEach((todo, index) => {
+                const li = document.createElement('li');
+                li.className = 'todo-item';
+                li.style.paddingLeft = `${todo.indent * 30}px`;
+                li.draggable = true;
+                li.dataset.index = index;
+                
+                // Drag event listeners
+                li.ondragstart = (e) => handleDragStart(e, index);
+                li.ondragend = handleDragEnd;
+                li.ondragover = handleDragOver;
+                li.ondrop = (e) => handleDrop(e, index);
+                li.ondragenter = handleDragEnter;
+                li.ondragleave = handleDragLeave;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = todo.completed;
+                checkbox.onchange = (e) => toggleTodo(todo.id, e.target, li);
+                
+                const textInput = document.createElement('input');
+                textInput.type = 'text';
+                const isBold = todo.text.startsWith('#');
+                textInput.className = `todo-text ${todo.completed ? 'completed' : ''} ${isBold ? 'bold' : ''}`;
+                textInput.value = todo.text;
+                textInput.onchange = (e) => updateTodoText(todo.id, e.target.value);
+                textInput.oninput = (e) => {
+                    // Update bold style in real-time as user types
+                    if (e.target.value.startsWith('#')) {
+                        e.target.classList.add('bold');
+                    } else {
+                        e.target.classList.remove('bold');
+                    }
+                };
+                textInput.onkeydown = (e) => handleTodoKeyDown(e, index);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = '×';
+                deleteBtn.onclick = () => deleteTodo(todo.id);
+                
+                li.appendChild(checkbox);
+                li.appendChild(textInput);
+                li.appendChild(deleteBtn);
+                todoList.appendChild(li);
+            });
+        }
+
+        // Handle Tab key for indentation and Enter for new todo
+        function handleTodoKeyDown(event, index) {
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                if (event.shiftKey) {
+                    // Decrease indent
+                    if (todos[index].indent > 0) {
+                        todos[index].indent--;
+                    }
+                } else {
+                    // Increase indent
+                    if (todos[index].indent < 5) {
+                        todos[index].indent++;
+                    }
+                }
+                saveTodos();
+                renderTodos();
+                // Focus back on the input
+                setTimeout(() => {
+                    const inputs = document.querySelectorAll('.todo-text');
+                    inputs[index].focus();
+                }, 0);
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                // Create new todo after current one
+                const currentTodo = todos[index];
+                const newTodo = {
+                    id: Date.now(),
+                    text: '',
+                    completed: false,
+                    indent: currentTodo.indent
+                };
+                todos.splice(index + 1, 0, newTodo);
+                saveTodos();
+                renderTodos();
+                // Focus on the new todo
+                setTimeout(() => {
+                    const inputs = document.querySelectorAll('.todo-text');
+                    inputs[index + 1].focus();
+                }, 0);
+            } else if (event.key === 'Backspace' && event.target.value === '') {
+                event.preventDefault();
+                deleteTodo(todos[index].id);
+                // Focus on previous todo if exists
+                if (index > 0) {
+                    setTimeout(() => {
+                        const inputs = document.querySelectorAll('.todo-text');
+                        if (inputs[index - 1]) {
+                            inputs[index - 1].focus();
+                            inputs[index - 1].setSelectionRange(inputs[index - 1].value.length, inputs[index - 1].value.length);
+                        }
+                    }, 0);
+                }
+            }
+        }
+
+        // Toggle todo completion
+        function toggleTodo(id, checkbox, listItem) {
+            const todo = todos.find(t => t.id === id);
+            if (todo) {
+                todo.completed = !todo.completed;
+                if (todo.completed) {
+                    const isBold = todo.text.startsWith('#');
+                    
+                    if (isBold) {
+                        // Epic completion for bold items
+                        playEpicDing();
+                        
+                        // First explosion at checkbox
+                        const rect = checkbox.getBoundingClientRect();
+                        showConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                        
+                        // Schedule 4 more random explosions
+                        for (let i = 1; i <= 4; i++) {
+                            setTimeout(() => {
+                                const randomX = Math.random() * window.innerWidth;
+                                const randomY = Math.random() * window.innerHeight;
+                                showConfetti(randomX, randomY);
+                            }, i * 500);
+                        }
+                    } else {
+                        // Normal completion
+                        playDing();
+                        
+                        // Show confetti from checkbox location
+                        const rect = checkbox.getBoundingClientRect();
+                        showConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                    }
+                    
+                    // Add shake animation
+                    saveTodos();
+                    renderTodos();
+                    
+                    // Apply shake after re-render
+                    setTimeout(() => {
+                        const todoItems = document.querySelectorAll('.todo-item');
+                        const itemIndex = todos.findIndex(t => t.id === id);
+                        if (todoItems[itemIndex]) {
+                            todoItems[itemIndex].classList.add('shake');
+                            setTimeout(() => {
+                                todoItems[itemIndex].classList.remove('shake');
+                            }, 500);
+                        }
+                    }, 10);
+                } else {
+                    saveTodos();
+                    renderTodos();
+                }
+            }
+        }
+
+        // Update todo text
+        function updateTodoText(id, text) {
+            const todo = todos.find(t => t.id === id);
+            if (todo) {
+                todo.text = text;
+                saveTodos();
+            }
+        }
+
+        // Delete todo
+        function deleteTodo(id) {
+            todos = todos.filter(t => t.id !== id);
+            saveTodos();
+            renderTodos();
+        }
+
+        // Confetti animation
+        function showConfetti(x, y) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Create confetti particles exploding from checkbox location
+            for (let i = 0; i < 150; i++) {
+                const angle = (Math.PI * 2 * i) / 150;
+                const velocity = Math.random() * 5 + 2;
+                confettiParticles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * velocity,
+                    vy: Math.sin(angle) * velocity - 2,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    size: Math.random() * 10 + 5,
+                    angle: Math.random() * 360,
+                    angleVelocity: Math.random() * 10 - 5
+                });
+            }
+            
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            confettiParticles = confettiParticles.filter(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.vy += 0.05; // gravity
+                particle.angle += particle.angleVelocity;
+                
+                if (particle.y < canvas.height) {
+                    ctx.save();
+                    ctx.translate(particle.x, particle.y);
+                    ctx.rotate(particle.angle * Math.PI / 180);
+                    ctx.fillStyle = particle.color;
+                    ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size);
+                    ctx.restore();
+                    return true;
+                }
+                return false;
+            });
+            
+            if (confettiParticles.length > 0) {
+                requestAnimationFrame(animateConfetti);
+            }
+        }
+
+        // Drag and drop handlers
+        function handleDragStart(e, index) {
+            draggedItem = index;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            e.target.closest('.todo-item')?.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.target.closest('.todo-item')?.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, dropIndex) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            const draggedTodo = e.target.closest('.todo-item');
+            if (draggedTodo) {
+                draggedTodo.classList.remove('drag-over');
+            }
+            
+            if (draggedItem !== null && draggedItem !== dropIndex) {
+                // Reorder todos
+                const [removed] = todos.splice(draggedItem, 1);
+                todos.splice(dropIndex, 0, removed);
+                saveTodos();
+                renderTodos();
+            }
+            
+            draggedItem = null;
+            return false;
+        }
+
+        // Resize canvas on window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Initialize
+        loadTheme();
+        loadTodos();
+    </script>
+</body>
+</html>

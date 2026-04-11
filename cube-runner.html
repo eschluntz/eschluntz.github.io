@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cube Runner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #000; touch-action: none; }
+        canvas { display: block; }
+        #ui {
+            position: absolute; top: 20px; left: 20px;
+            color: #0ff; font-family: 'Courier New', monospace;
+            font-size: 18px; text-shadow: 0 0 10px currentColor;
+            transition: color 0.5s;
+        }
+        #controls {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            color: #888; font-family: 'Courier New', monospace; font-size: 14px;
+            transition: color 0.5s;
+        }
+        #gameover {
+            display: none; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); text-align: center;
+            color: #ff0044; font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 40px 60px;
+            border: 2px solid #ff0044;
+            border-radius: 10px;
+        }
+        .game-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            border: 2px solid;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .game-btn:active {
+            transform: scale(0.95);
+        }
+        #continueBtn {
+            color: #0ff;
+            border-color: #0ff;
+            background: rgba(0, 255, 255, 0.1);
+        }
+        #continueBtn:active {
+            background: rgba(0, 255, 255, 0.3);
+        }
+        #restartBtn {
+            color: #ff0044;
+            border-color: #ff0044;
+            background: rgba(255, 0, 68, 0.1);
+        }
+        #restartBtn:active {
+            background: rgba(255, 0, 68, 0.3);
+        }
+        #touchControls {
+            display: none;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 150px;
+            pointer-events: none;
+        }
+        .touch-btn {
+            position: absolute;
+            bottom: 20px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: rgba(255, 255, 255, 0.5);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .touch-btn:active, .touch-btn.active {
+            background: rgba(255, 255, 255, 0.35);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        #leftBtn { left: 30px; }
+        #rightBtn { right: 30px; }
+        @media (pointer: coarse) {
+            #controls { display: none; }
+            #touchControls { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>HIGH SCORE: <span id="highscore">0</span></div>
+        <div>LEVEL: <span id="level">1</span></div>
+    </div>
+    <div id="gameover">
+        <div style="font-size: 48px; text-shadow: 0 0 20px #ff0044;">GAME OVER</div>
+        <div id="gameoverKeys" style="margin-top: 30px;">
+            <div style="font-size: 20px; color: #0ff;">Press SPACE to Continue</div>
+            <div style="font-size: 20px; margin-top: 10px; color: #0ff;">Press R to Restart</div>
+        </div>
+        <div id="gameoverBtns" style="margin-top: 30px; display: none;">
+            <div id="continueBtn" class="game-btn">CONTINUE</div>
+            <div id="restartBtn" class="game-btn">RESTART</div>
+        </div>
+    </div>
+    <div id="controls">A/D - Steer | S - Skip Level | 1-9 - Jump to Level | R - Restart</div>
+    <div id="touchControls">
+        <div id="leftBtn" class="touch-btn">◀</div>
+        <div id="rightBtn" class="touch-btn">▶</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // 9 unique visual themes with distinct mechanics
+        const levelThemes = [
+            {
+                name: "Training Grounds",
+                background: '#e0e0e0',
+                gridColor: '#999999',
+                cubeColors: ['#ff6600', '#ff4400', '#ff8800', '#ffaa00', '#cc3300'],
+                cubeStyle: 'solid',
+                edgeColor: '#333333',
+                shipColor: '#ff5500',
+                drawStars: false,
+                opaqueCubes: true,
+                lightBackground: true
+            },
+            {
+                name: "Jungle Path",
+                background: '#87CEEB',
+                groundColor: '#8B4513',
+                gridColor: '#1a0d05',
+                cubeColors: ['#228B22', '#2E8B57', '#006400', '#32CD32', '#556B2F', '#6B8E23'],
+                cubeStyle: 'solid',
+                edgeColor: '#1a3300',
+                shipColor: '#ff4400',
+                drawStars: false,
+                opaqueCubes: true,
+                lightBackground: true,
+                staticClouds: true,
+                // Unique features
+                formation: 'clusters',
+                clusterSettings: { spacing: 20, radius: 12, density: 20 }
+            },
+            {
+                name: "Sunset Highway",
+                background: '#1a0a1e',
+                gridColor: '#663344',
+                cubeColors: ['#ffcc00', '#ff8800', '#ff4400', '#ff0000'],
+                cubeStyle: 'solid',
+                edgeColor: '#000000',
+                shipColor: '#ff6600',
+                drawStars: false,
+                // Unique features
+                horizonGlow: { top: '#1a0a1e', middle: '#ff4400', bottom: '#ffcc00', ground: '#2a1a0e' },
+                castShadows: true
+            },
+            {
+                name: "Void City",
+                background: '#ffffff',
+                gridColor: '#000000',
+                cubeColors: ['#000000', '#222222', '#111111'],
+                cubeStyle: 'solid',
+                edgeColor: '#000000',
+                shipColor: '#333333',
+                drawStars: false,
+                staticClouds: true,
+                // Unique features
+                giantCubes: { giant: 0.01, large: 0.04 },  // 1% 10x, 4% 5x
+                lightBackground: true
+            },
+            {
+                name: "Ocean Floor",
+                background: '#000820',
+                gridColor: '#004488',
+                cubeColors: ['#00ffff', '#0088ff', '#00aaff', '#66ffff'],
+                cubeStyle: 'transparent',
+                edgeColor: '#00ffff',
+                shipColor: '#00ffff',
+                drawStars: true,
+                starColor: '#4488cc',
+                bubbles: true,
+                // Unique features
+                verticalMovers: 0.20
+            },
+            {
+                name: "The Matrix",
+                background: '#000800',
+                gridColor: '#00ff00',
+                cubeColors: ['#00ff00'],
+                cubeStyle: 'wireframe',
+                edgeColor: '#00ff00',
+                shipColor: '#00ff00',
+                drawStars: false,
+                matrixRain: true,
+                // Unique features
+                horizontalMovers: 0.10
+            },
+            {
+                name: "Retrowave",
+                background: '#0f0025',
+                gridColor: '#ff00ff',
+                cubeColors: ['#ff00ff', '#00ffff', '#ff0088', '#8800ff'],
+                cubeStyle: 'solid',
+                edgeColor: '#ffffff',
+                shipColor: '#ff00ff',
+                drawStars: true,
+                starColor: '#ff88ff',
+                scanlines: true,
+                // Unique features
+                formation: 'sinwave',
+                spawnRateMultiplier: 6,  // Higher for solid walls
+                cubeSize: { min: 2, max: 2.5 }  // Uniform size for solid walls
+            },
+            {
+                name: "Volcanic Ash",
+                background: '#1a0000',
+                gridColor: '#ff2200',
+                cubeColors: ['#ff0000', '#ff4400', '#ff8800', '#ffcc00'],
+                cubeStyle: 'solid',
+                edgeColor: '#ffff00',
+                shipColor: '#ff8800',
+                drawStars: false,
+                embers: true,
+                // Unique features
+                longRectangles: 0.20,
+                dustStorm: { color: '#ff4400', density: 150 }
+            },
+            {
+                name: "Arctic Storm",
+                background: '#d0e8ff',
+                gridColor: '#6699bb',
+                cubeColors: ['#aaddff', '#88ccee', '#99ddff', '#ffffff'],
+                cubeStyle: 'transparent',
+                edgeColor: '#ffffff',
+                shipColor: '#4488aa',
+                drawStars: false,
+                // Unique features
+                lightning: true,
+                blizzard: { color: '#223344', density: 900 },
+                lightBackground: true
+            },
+            {
+                name: "Neon Gates",
+                background: '#0a0015',
+                gridColor: '#4400aa',
+                cubeColors: ['#ff0044', '#ff4400', '#ffaa00', '#ff0088', '#aa00ff', '#00ffff'],
+                cubeStyle: 'solid',
+                edgeColor: '#ffffff',
+                shipColor: '#00ffff',
+                drawStars: true,
+                starColor: '#6644aa',
+                // Unique features
+                formation: 'walls',
+                cubeSize: { min: 2, max: 2.5 }
+            }
+        ];
+
+        // Game state
+        let gameOver = false;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('cubeRunnerHighScore')) || 0;
+        let lightningFlash = 0;
+        const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+        // Level state
+        let currentLevel = 1;
+        let levelTime = 0;
+        const levelDuration = 30;
+        let transitioning = false;
+        let transitionPhase = 'none';
+        let messageTimer = 0;
+        let spawningEnabled = true;
+        let wallGatePosition = 0; // For wall formations
+        let lastWallZ = 0; // Track last spawned wall position
+        let lastGateX = 0; // Track last gate X position for chaining
+        let lastClusterZ = 0; // Track last cluster spawn position
+        let clusterSide = 1; // Alternate clusters left (-1) and right (1)
+        let levelStartX = 0; // Ship X position when level started
+        let levelStartZ = 0; // Ship Z position when level started
+
+        const baseSpeed = 29.25;
+        // Hardcoded density per level: Training, Jungle, Sunset, Void City, Ocean, Matrix, Retrowave, Volcanic, Arctic, Neon
+        // Hardcoded density per level: Training, Jungle, Sunset, Void City, Ocean, Matrix, Retrowave, Volcanic, Arctic, Neon
+        const levelDensities = [0.315, 0.315, 0.315, 0.331, 0.365, 0.331, 0.365, 0.365, 0.402, 0.365];
+
+        function getCurrentTheme() {
+            return levelThemes[(currentLevel - 1) % levelThemes.length];
+        }
+
+        const ship = {
+            x: 0, y: 1.5, z: 0,
+            velocityX: 0, velocityZ: baseSpeed,
+            bankAngle: 0, maxBankAngle: Math.PI / 6,
+            lateralSpeed: 25, bankSpeed: 6, returnSpeed: 5
+        };
+
+        const cubes = [];
+        const cubeSettings = {
+            spawnDistance: 80, despawnDistance: 10,
+            spawnRate: levelDensities[0], minSize: 1.5, maxSize: 3, spreadX: 170
+        };
+
+        // Helper: Create a cube with common properties from theme
+        function createCube(theme, x, z, options = {}) {
+            const minSize = theme.cubeSize?.min || cubeSettings.minSize;
+            const maxSize = theme.cubeSize?.max || cubeSettings.maxSize;
+            let size = options.size || (minSize + Math.random() * (maxSize - minSize));
+            
+            // Giant cubes
+            if (theme.giantCubes && !options.size) {
+                const roll = Math.random();
+                const giantChance = theme.giantCubes.giant || 0.01;
+                const largeChance = theme.giantCubes.large || 0.02;
+                if (roll < giantChance) size *= 10;
+                else if (roll < giantChance + largeChance) size *= 5;
+            }
+
+            // Shape
+            let scaleX = options.scaleX || 1;
+            let scaleY = options.scaleY || 1;
+            let scaleZ = options.scaleZ || 1;
+            if (theme.longRectangles && Math.random() < theme.longRectangles && !options.scaleX) {
+                const axis = Math.floor(Math.random() * 3);
+                if (axis === 0) scaleX = 3 + Math.random() * 2;
+                else if (axis === 1) scaleY = 3 + Math.random() * 2;
+                else scaleZ = 3 + Math.random() * 2;
+            }
+
+            // Movement
+            let moveType = options.moveType || 'none';
+            let moveSpeed = options.moveSpeed || 0;
+            let moveRange = options.moveRange || 0;
+            if (moveType === 'none' && !options.moveType) {
+                if (theme.horizontalMovers && Math.random() < theme.horizontalMovers) {
+                    moveType = 'horizontal'; moveSpeed = 2 + Math.random() * 2; moveRange = 3 + Math.random() * 4;
+                } else if (theme.verticalMovers && Math.random() < theme.verticalMovers) {
+                    moveType = 'vertical'; moveSpeed = 1.5 + Math.random() * 1.5; moveRange = 1 + Math.random() * 2;
+                }
+            }
+
+            const glows = options.glows ?? (theme.glowingCubes && Math.random() < theme.glowingCubes);
+
+            return {
+                x, baseX: x,
+                y: size * scaleY / 2 + (options.yOffset !== undefined ? options.yOffset : 1),
+                baseY: size * scaleY / 2 + (options.yOffset !== undefined ? options.yOffset : 1),
+                z,
+                size, scaleX, scaleY, scaleZ,
+                color: theme.cubeColors[Math.floor(Math.random() * theme.cubeColors.length)],
+                moveType, moveSpeed, moveRange,
+                movePhase: Math.random() * Math.PI * 2,
+                glows
+            };
+        }
+
+        // Formation handlers - each handles its own init and spawn logic
+        const formations = {
+            // Sinwave: funnel that leads into oscillating walls
+            sinwave: {
+                init(theme) {
+                    for (let i = 0; i < 80; i++) {
+                        const z = ship.z + 5 + i * 2;
+                        for (let j = 0; j < 6; j++) {
+                            const x = this.getX(theme, z);
+                            if (x !== null) cubes.push(createCube(theme, x, z));
+                        }
+                    }
+                },
+                spawn(theme) {
+                    const z = ship.z + cubeSettings.spawnDistance + Math.random() * 20;
+                    const x = this.getX(theme, z);
+                    if (x !== null) cubes.push(createCube(theme, x, z));
+                },
+                getX(theme, z) {
+                    const distanceFromLevelStart = z - levelStartZ;
+                    const funnelLength = 80;
+                    const funnelProgress = Math.min(1, Math.max(0, distanceFromLevelStart / funnelLength));
+                    
+                    let waveCenter;
+                    if (funnelProgress < 1) {
+                        waveCenter = levelStartX;
+                    } else {
+                        const wavePhase = (distanceFromLevelStart - funnelLength) * 0.023;
+                        waveCenter = levelStartX + Math.sin(wavePhase) * 30;
+                    }
+                    
+                    const gapWidth = 40 - funnelProgress * 20;
+                    const wallOffset = Math.random() * 8;
+                    return Math.random() < 0.5 
+                        ? waveCenter - gapWidth/2 - 2 - wallOffset
+                        : waveCenter + gapWidth/2 + 2 + wallOffset;
+                }
+            },
+
+            // Walls: solid walls with gates
+            walls: {
+                init(theme) {
+                    const wallInterval = 52.5;
+                    const baseGateWidth = 5.25;
+                    const gateWidth = currentLevel >= 10 ? baseGateWidth / 2 : baseGateWidth;
+                    const cubeSize = 2.5;
+                    
+                    lastWallZ = ship.z;
+                    lastGateX = levelStartX;
+                    
+                    for (let wallNum = 0; wallNum < 6; wallNum++) {
+                        const wallZ = ship.z + 60 + wallNum * wallInterval;
+                        lastWallZ = wallZ;
+                        
+                        let gateCenter;
+                        if (wallNum === 0) {
+                            gateCenter = levelStartX;
+                        } else {
+                            const maxOffset = currentLevel >= 10 ? 10.5 : 15;
+                            gateCenter = lastGateX + (Math.random() < 0.5 ? -1 : 1) * maxOffset;
+                        }
+                        lastGateX = gateCenter;
+                        
+                        this.spawnWall(theme, wallZ, gateCenter, gateWidth, cubeSize);
+                    }
+                },
+                spawn(theme) {
+                    const wallInterval = 52.5;
+                    const baseGateWidth = 5.25;
+                    const gateWidth = currentLevel >= 10 ? baseGateWidth / 2 : baseGateWidth;
+                    const cubeSize = 2.5;
+                    
+                    const nextWallZ = lastWallZ + wallInterval;
+                    if (ship.z + cubeSettings.spawnDistance + 40 < nextWallZ) return;
+                    
+                    lastWallZ = nextWallZ;
+                    const maxOffset = currentLevel >= 10 ? 10.5 : 15;
+                    const gateCenter = lastGateX + (Math.random() < 0.5 ? -1 : 1) * maxOffset;
+                    lastGateX = gateCenter;
+                    
+                    this.spawnWall(theme, nextWallZ, gateCenter, gateWidth, cubeSize);
+                },
+                spawnWall(theme, wallZ, gateCenter, gateWidth, cubeSize) {
+                    // Left side
+                    for (let i = 0; i < 24; i++) {
+                        const cx = gateCenter - gateWidth/2 - 2 - i * cubeSize;
+                        cubes.push(createCube(theme, cx, wallZ, {
+                            size: cubeSize, scaleX: 1, scaleY: 1, scaleZ: 1,
+                            moveType: 'none', glows: false, yOffset: 0.5
+                        }));
+                    }
+                    // Right side
+                    for (let i = 0; i < 24; i++) {
+                        const cx = gateCenter + gateWidth/2 + 2 + i * cubeSize;
+                        cubes.push(createCube(theme, cx, wallZ, {
+                            size: cubeSize, scaleX: 1, scaleY: 1, scaleZ: 1,
+                            moveType: 'none', glows: false, yOffset: 0.5
+                        }));
+                    }
+                }
+            },
+
+            // Clusters: dense groups at random positions across full play width
+            clusters: {
+                init(theme) {
+                    const settings = theme.clusterSettings || { spacing: 20, radius: 12, density: 20 };
+                    lastClusterZ = ship.z;
+                    
+                    for (let clusterNum = 0; clusterNum < 8; clusterNum++) {
+                        const clusterZ = ship.z + 60 + clusterNum * settings.spacing;
+                        lastClusterZ = clusterZ;
+                        // Spawn multiple clusters per row to cover full width
+                        const clustersPerRow = 3;
+                        for (let c = 0; c < clustersPerRow; c++) {
+                            this.spawnCluster(theme, clusterZ, settings, ship.x);
+                        }
+                    }
+                },
+                spawn(theme) {
+                    const settings = theme.clusterSettings || { spacing: 20, radius: 12, density: 20 };
+                    const nextClusterZ = lastClusterZ + settings.spacing;
+                    if (ship.z + cubeSettings.spawnDistance + 20 < nextClusterZ) return;
+                    
+                    lastClusterZ = nextClusterZ;
+                    // Spawn multiple clusters per row to cover full width
+                    const clustersPerRow = 3;
+                    for (let c = 0; c < clustersPerRow; c++) {
+                        this.spawnCluster(theme, nextClusterZ, settings, ship.x);
+                    }
+                },
+                spawnCluster(theme, clusterZ, settings, shipX) {
+                    // Random X position across full spread width
+                    const clusterCenterX = shipX + (Math.random() - 0.5) * 2 * cubeSettings.spreadX;
+                    
+                    for (let i = 0; i < settings.density; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = Math.random() * settings.radius;
+                        const cx = clusterCenterX + Math.cos(angle) * dist;
+                        const cz = clusterZ + Math.sin(angle) * dist * 0.5;
+                        const cubeSize = 2 + Math.random() * 1.5;
+                        
+                        cubes.push(createCube(theme, cx, cz, {
+                            size: cubeSize,
+                            scaleY: 1 + Math.random() * 0.5,
+                            moveType: 'none', glows: false,
+                            yOffset: 0
+                        }));
+                    }
+                }
+            }
+        };
+
+        // Main spawn function - delegates to formation or uses default
+        function spawnCube() {
+            if (!spawningEnabled) return;
+            const theme = getCurrentTheme();
+            
+            if (theme.formation && formations[theme.formation]) {
+                formations[theme.formation].spawn(theme);
+            } else {
+                // Default random spawn
+                const z = ship.z + cubeSettings.spawnDistance + Math.random() * 20;
+                const x = ship.x + (Math.random() - 0.5) * 2 * cubeSettings.spreadX;
+                cubes.push(createCube(theme, x, z));
+            }
+        }
+
+        // Initialize cubes for level start
+        function initCubes() {
+            cubes.length = 0;
+            const theme = getCurrentTheme();
+            
+            if (theme.formation && formations[theme.formation]) {
+                formations[theme.formation].init(theme);
+            } else {
+                // Default: spawn cubes ahead
+                for (let i = 0; i < 30; i++) {
+                    const z = ship.z + 20 + i * 3;
+                    const x = ship.x + (Math.random() - 0.5) * 2 * cubeSettings.spreadX;
+                    cubes.push(createCube(theme, x, z));
+                }
+            }
+        }
+
+        function updateCubes(time) {
+            for (const cube of cubes) {
+                if (cube.moveType === 'horizontal') {
+                    cube.x = cube.baseX + Math.sin(time * cube.moveSpeed + cube.movePhase) * cube.moveRange;
+                } else if (cube.moveType === 'vertical') {
+                    cube.y = cube.baseY + Math.sin(time * cube.moveSpeed + cube.movePhase) * cube.moveRange;
+                    if (cube.y < cube.size * cube.scaleY / 2) cube.y = cube.size * cube.scaleY / 2;
+                }
+            }
+        }
+
+        function checkCollision(cube) {
+            const shipSize = 0.2, shipHeight = 0.15;
+            const halfX = cube.size * cube.scaleX / 2;
+            const halfY = cube.size * cube.scaleY / 2;
+            const halfZ = cube.size * cube.scaleZ / 2;
+            return (ship.x - shipSize * 0.7 <= cube.x + halfX && ship.x + shipSize * 0.7 >= cube.x - halfX) &&
+                   (ship.y - shipHeight * 0.3 <= cube.y + halfY && ship.y + shipHeight * 0.3 >= cube.y - halfY) &&
+                   (ship.z - shipSize <= cube.z + halfZ && ship.z + shipSize >= cube.z - halfZ);
+        }
+
+        function startLevelTransition() {
+            if (transitioning || gameOver) return;
+            transitioning = true;
+            transitionPhase = 'exiting';
+            spawningEnabled = false;
+        }
+
+        function advanceLevel() {
+            currentLevel++;
+            levelStartX = ship.x; // Remember where ship was when level started
+            levelStartZ = ship.z;
+            lastWallZ = ship.z; // Reset wall tracking
+            lastGateX = ship.x; // Reset gate tracking to ship position
+            lastClusterZ = ship.z; // Reset cluster tracking
+            clusterSide = 1;
+            const speedMult = Math.pow(1.1, currentLevel - 1);
+            ship.velocityZ = baseSpeed * speedMult;
+            cubeSettings.spawnRate = levelDensities[(currentLevel - 1) % levelDensities.length];
+            cubeSettings.spreadX = ((cubeSettings.spawnDistance + 20) / ship.velocityZ) * ship.lateralSpeed + 20;
+        }
+
+        function restartGame() {
+            ship.x = 0; ship.z = 0; ship.velocityX = 0;
+            ship.bankAngle = 0; ship.velocityZ = baseSpeed;
+            score = 0; currentLevel = 1; levelTime = 0;
+            transitioning = false; transitionPhase = 'none';
+            spawningEnabled = true; gameOver = false;
+            levelStartX = 0;
+            levelStartZ = 0;
+            lastWallZ = 0;
+            lastGateX = 0;
+            lastClusterZ = 0;
+            clusterSide = 1;
+            cubeSettings.spawnRate = levelDensities[0];
+            cubeSettings.spreadX = 170;
+            document.getElementById('gameover').style.display = 'none';
+            if (isTouchDevice) document.getElementById('touchControls').style.display = 'block';
+            initCubes();
+        }
+
+        function restartFromCurrentLevel() {
+            const savedLevel = currentLevel;
+            ship.x = 0; ship.z = 0; ship.velocityX = 0;
+            ship.bankAngle = 0;
+            score = 0;
+            levelTime = 0;
+            transitioning = false; transitionPhase = 'none';
+            spawningEnabled = true; gameOver = false;
+            levelStartX = 0;
+            levelStartZ = 0;
+            lastWallZ = 0;
+            lastGateX = 0;
+            lastClusterZ = 0;
+            clusterSide = 1;
+            document.getElementById('gameover').style.display = 'none';
+            if (isTouchDevice) document.getElementById('touchControls').style.display = 'block';
+            
+            // Recalculate speed and density for current level
+            currentLevel = savedLevel - 1;
+            cubes.length = 0;
+            advanceLevel();
+            initCubes();
+        }
+
+        const camera = { distance: 2, height: 1.25, bankAngle: 0, x: 0, y: 0, z: 0 };
+        const keys = { left: false, right: false };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'a' || e.key === 'A') keys.left = true;
+            if (e.key === 'd' || e.key === 'D') keys.right = true;
+            if (e.key === ' ' && gameOver) restartFromCurrentLevel();
+            if (e.key === 'r' || e.key === 'R') restartGame();
+            if ((e.key === 's' || e.key === 'S') && !gameOver) startLevelTransition();
+            // Number keys to jump to specific levels
+            if (e.key >= '1' && e.key <= '9' && !gameOver) {
+                const targetLevel = parseInt(e.key);
+                currentLevel = targetLevel - 1; // Will be incremented by advanceLevel
+                cubes.length = 0;
+                advanceLevel();
+                spawningEnabled = true;
+                transitioning = false;
+                transitionPhase = 'none';
+                levelTime = 0;
+                initCubes();
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'a' || e.key === 'A') keys.left = false;
+            if (e.key === 'd' || e.key === 'D') keys.right = false;
+        });
+
+        // Touch controls        
+        if (isTouchDevice) {
+            document.getElementById('gameoverKeys').style.display = 'none';
+            document.getElementById('gameoverBtns').style.display = 'block';
+        }
+
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const continueBtn = document.getElementById('continueBtn');
+        const restartBtn = document.getElementById('restartBtn');
+
+        // Left button
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys.left = true;
+            leftBtn.classList.add('active');
+        });
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.left = false;
+            leftBtn.classList.remove('active');
+        });
+        leftBtn.addEventListener('touchcancel', (e) => {
+            keys.left = false;
+            leftBtn.classList.remove('active');
+        });
+
+        // Right button
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys.right = true;
+            rightBtn.classList.add('active');
+        });
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys.right = false;
+            rightBtn.classList.remove('active');
+        });
+        rightBtn.addEventListener('touchcancel', (e) => {
+            keys.right = false;
+            rightBtn.classList.remove('active');
+        });
+
+        // Game over buttons
+        continueBtn.addEventListener('click', () => {
+            if (gameOver) restartFromCurrentLevel();
+        });
+        restartBtn.addEventListener('click', () => {
+            if (gameOver) restartGame();
+        });
+
+        function multiplyMatrixVector(m, v) {
+            return [
+                m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+                m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+                m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2]
+            ];
+        }
+
+        function rotationMatrixZ(angle) {
+            const c = Math.cos(angle), s = Math.sin(angle);
+            return [[c,-s,0],[s,c,0],[0,0,1]];
+        }
+
+        function project(x, y, z) {
+            let rx = x - camera.x, ry = y - camera.y, rz = z - camera.z;
+            const bankMatrix = rotationMatrixZ(-camera.bankAngle * 0.3);
+            const rotated = multiplyMatrixVector(bankMatrix, [rx, ry, rz]);
+            // Clamp very close/behind camera to a small positive value for cube rendering
+            const clampedZ = Math.max(rotated[2], 0.1);
+            const isBehind = rotated[2] <= 0.1;
+            const baseScale = Math.min(canvas.width, canvas.height) * 0.7;
+            const scale = baseScale / clampedZ;
+            
+            // Calculate centerY so ship bottom is above screen bottom
+            // Mobile: between the touch buttons, Desktop: a bit higher than edge
+            const bottomMargin = isTouchDevice ? 80 : 40;
+            const shipBottomOffset = 0.65 * baseScale;
+            const centerY = canvas.height - bottomMargin - shipBottomOffset;
+            
+            return { x: canvas.width/2 + rotated[0]*scale, y: centerY - rotated[1]*scale, z: clampedZ, scale, isBehind };
+        }
+
+        function getHorizonY() {
+            const horizonPoint = project(ship.x, 0, ship.z + 100);
+            return horizonPoint ? horizonPoint.y : canvas.height * 0.6;
+        }
+
+        function drawLine3D(x1, y1, z1, x2, y2, z2, color, width = 1) {
+            const p1 = project(x1, y1, z1), p2 = project(x2, y2, z2);
+            if (p1.isBehind && p2.isBehind) return;
+            ctx.strokeStyle = color; ctx.lineWidth = width;
+            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        }
+
+        function drawHorizonGlow() {
+            const theme = getCurrentTheme();
+            if (!theme.horizonGlow) return;
+            
+            const horizonY = getHorizonY();
+            const bankAngle = camera.bankAngle * 0.3; // Opposite of projection to match world
+            
+            ctx.save();
+            // Rotate around center of screen
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(bankAngle);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            
+            // Draw larger to cover corners when rotated
+            const padding = 200;
+            const gradient = ctx.createLinearGradient(0, -padding, 0, canvas.height + padding);
+            const horizonRatio = horizonY / canvas.height;
+            gradient.addColorStop(0, theme.horizonGlow.top);
+            gradient.addColorStop(horizonRatio * 0.8, theme.horizonGlow.middle);
+            gradient.addColorStop(horizonRatio, theme.horizonGlow.bottom);
+            gradient.addColorStop(1, theme.horizonGlow.ground || theme.horizonGlow.top);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-padding, -padding, canvas.width + padding * 2, canvas.height + padding * 2);
+            ctx.restore();
+        }
+
+        function drawGround() {
+            const theme = getCurrentTheme();
+            const gridSize = 4, gridExtent = 120;
+            const offsetZ = ((ship.z % gridSize) + gridSize) % gridSize;
+            const offsetX = ((ship.x % gridSize) + gridSize) % gridSize;
+            const baseOpacity = theme.gridOpacity || (theme.groundColor ? 0.7 : 0.4);
+
+            for (let i = -15; i <= 15; i++) {
+                const worldX = ship.x - offsetX + i * gridSize;
+                ctx.globalAlpha = (1 - Math.abs(i) / 15) * baseOpacity;
+                drawLine3D(worldX, 0, ship.z - 5, worldX, 0, ship.z + gridExtent, theme.gridColor, 1);
+            }
+            for (let i = 0; i <= 30; i++) {
+                const worldZ = ship.z - offsetZ + i * gridSize;
+                ctx.globalAlpha = (1 - i / 30) * baseOpacity;
+                drawLine3D(ship.x - gridExtent, 0, worldZ, ship.x + gridExtent, 0, worldZ, theme.gridColor, 1);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawShip() {
+            const theme = getCurrentTheme();
+            const size = 0.2, height = 0.15;
+            const baseVertices = [[0, height*0.3, -size], [-size*0.7, -height*0.3, -size], [size*0.7, -height*0.3, -size]];
+            const nose = [0, 0, size];
+            const bankMatrix = rotationMatrixZ(ship.bankAngle);
+            const rotatedBase = baseVertices.map(v => multiplyMatrixVector(bankMatrix, v));
+            const rotatedNose = multiplyMatrixVector(bankMatrix, nose);
+            const worldBase = rotatedBase.map(v => [v[0]+ship.x, v[1]+ship.y, v[2]+ship.z]);
+            const worldNose = [rotatedNose[0]+ship.x, rotatedNose[1]+ship.y, rotatedNose[2]+ship.z];
+            const projBase = worldBase.map(v => project(v[0], v[1], v[2]));
+            const projNose = project(worldNose[0], worldNose[1], worldNose[2]);
+            if (projNose.isBehind || projBase.every(p => p.isBehind)) return;
+
+            const faces = [
+                { vertices: [projBase[0], projBase[1], projNose], alpha: 0.8 },
+                { vertices: [projBase[1], projBase[2], projNose], alpha: 0.7 },
+                { vertices: [projBase[2], projBase[0], projNose], alpha: 0.8 },
+                { vertices: [projBase[0], projBase[2], projBase[1]], alpha: 0.6 }
+            ];
+            faces.sort((a, b) => {
+                const avgA = a.vertices.reduce((s,v) => s+v.z, 0) / 3;
+                const avgB = b.vertices.reduce((s,v) => s+v.z, 0) / 3;
+                return avgB - avgA;
+            });
+
+            for (const face of faces) {
+                ctx.fillStyle = theme.shipColor; ctx.globalAlpha = face.alpha;
+                ctx.beginPath();
+                ctx.moveTo(face.vertices[0].x, face.vertices[0].y);
+                ctx.lineTo(face.vertices[1].x, face.vertices[1].y);
+                ctx.lineTo(face.vertices[2].x, face.vertices[2].y);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = theme.shipColor; ctx.lineWidth = 2; ctx.globalAlpha = 1; ctx.stroke();
+            }
+
+            ctx.shadowColor = theme.shipColor; ctx.shadowBlur = 10;
+            for (let i = 0; i < 3; i++) {
+                ctx.strokeStyle = theme.shipColor; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(projNose.x, projNose.y); ctx.lineTo(projBase[i].x, projBase[i].y); ctx.stroke();
+            }
+            for (let i = 0; i < 3; i++) {
+                const next = (i + 1) % 3;
+                ctx.beginPath(); ctx.moveTo(projBase[i].x, projBase[i].y); ctx.lineTo(projBase[next].x, projBase[next].y); ctx.stroke();
+            }
+            ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+        }
+
+        function drawCubeShadow(cube) {
+            const theme = getCurrentTheme();
+            if (!theme.castShadows && !cube.glows) return;
+            
+            // Project shadow onto ground (y=0)
+            const halfX = cube.size * cube.scaleX / 2;
+            const halfZ = cube.size * cube.scaleZ / 2;
+            
+            // Light comes from above and behind camera
+            const lightAngle = 0.3;
+            const shadowOffset = cube.y * lightAngle;
+            
+            const corners = [
+                [cube.x - halfX, 0, cube.z - halfZ + shadowOffset],
+                [cube.x + halfX, 0, cube.z - halfZ + shadowOffset],
+                [cube.x + halfX, 0, cube.z + halfZ + shadowOffset],
+                [cube.x - halfX, 0, cube.z + halfZ + shadowOffset]
+            ];
+            
+            const projected = corners.map(c => project(c[0], c[1], c[2]));
+            if (projected.every(p => p.isBehind)) return;
+            
+            ctx.beginPath();
+            ctx.moveTo(projected[0].x, projected[0].y);
+            for (let i = 1; i < projected.length; i++) {
+                ctx.lineTo(projected[i].x, projected[i].y);
+            }
+            ctx.closePath();
+            
+            if (cube.glows) {
+                // Glowing cubes cast colored light
+                ctx.fillStyle = cube.color;
+                ctx.globalAlpha = 0.3;
+            } else {
+                ctx.fillStyle = '#000000';
+                ctx.globalAlpha = 0.4;
+            }
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawCube(cube) {
+            const theme = getCurrentTheme();
+            const sx = cube.size * cube.scaleX / 2;
+            const sy = cube.size * cube.scaleY / 2;
+            const sz = cube.size * cube.scaleZ / 2;
+
+            const vertices = [
+                [-sx,-sy,-sz],[sx,-sy,-sz],[sx,sy,-sz],[-sx,sy,-sz],
+                [-sx,-sy,sz],[sx,-sy,sz],[sx,sy,sz],[-sx,sy,sz]
+            ];
+            const worldVerts = vertices.map(v => [v[0]+cube.x, v[1]+cube.y, v[2]+cube.z]);
+            const projected = worldVerts.map(v => project(v[0], v[1], v[2]));
+            // Only skip if entire cube is behind camera
+            if (projected.every(p => p.isBehind)) return;
+
+            const faces = [
+                { indices: [0,1,2,3], normal: [0,0,-1] }, { indices: [4,7,6,5], normal: [0,0,1] },
+                { indices: [0,3,7,4], normal: [-1,0,0] }, { indices: [1,5,6,2], normal: [1,0,0] },
+                { indices: [3,2,6,7], normal: [0,1,0] }, { indices: [0,4,5,1], normal: [0,-1,0] }
+            ];
+            const facesWithDepth = faces.map(f => ({ ...f, avgZ: f.indices.reduce((sum,i) => sum + projected[i].z, 0) / 4 }));
+            facesWithDepth.sort((a, b) => b.avgZ - a.avgZ);
+
+            const edgeColor = theme.edgeColor || cube.color;
+            const isDark = theme.isDark;
+
+            for (const face of facesWithDepth) {
+                const pts = face.indices.map(i => projected[i]);
+                let brightness = 0.5;
+                if (face.normal[1] > 0) brightness = 1.0;
+                else if (face.normal[1] < 0) brightness = 0.3;
+                else if (face.normal[2] > 0) brightness = 0.8;
+
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.closePath();
+
+                ctx.save();
+                ctx.clip();
+
+                if (isDark && !cube.glows) {
+                    // Non-glowing cubes in dark level are very dim
+                    ctx.fillStyle = '#111111';
+                    ctx.globalAlpha = brightness * 0.5;
+                    ctx.fill();
+                    ctx.strokeStyle = '#222222';
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 0.5;
+                    ctx.stroke();
+                } else if (cube.glows) {
+                    // Glowing cubes
+                    ctx.shadowColor = cube.color;
+                    ctx.shadowBlur = 20;
+                    ctx.fillStyle = cube.color;
+                    ctx.globalAlpha = brightness * 0.9;
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 4;
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                } else if (theme.cubeStyle === 'solid') {
+                    if (theme.opaqueCubes) {
+                        // Boost color for fully opaque cubes to make them vivid
+                        const adjustedBrightness = 0.9 + brightness * 0.4; // Range: 0.9 to 1.3
+                        const r = parseInt(cube.color.slice(1,3), 16);
+                        const g = parseInt(cube.color.slice(3,5), 16);
+                        const b = parseInt(cube.color.slice(5,7), 16);
+                        ctx.fillStyle = `rgb(${Math.min(255, Math.floor(r*adjustedBrightness))},${Math.min(255, Math.floor(g*adjustedBrightness))},${Math.min(255, Math.floor(b*adjustedBrightness))})`;
+                        ctx.globalAlpha = 1;
+                    } else {
+                        ctx.fillStyle = cube.color;
+                        ctx.globalAlpha = brightness * 0.9;
+                    }
+                    ctx.fill();
+                    ctx.strokeStyle = edgeColor;
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                } else if (theme.cubeStyle === 'transparent') {
+                    ctx.fillStyle = cube.color;
+                    ctx.globalAlpha = brightness * 0.35;
+                    ctx.fill();
+                    ctx.strokeStyle = edgeColor;
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                } else { // wireframe
+                    ctx.strokeStyle = edgeColor;
+                    ctx.lineWidth = 5;
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawCubes() {
+            const theme = getCurrentTheme();
+            const sorted = [...cubes].sort((a, b) => (b.z - camera.z) - (a.z - camera.z));
+            
+            // Draw shadows first
+            if (theme.castShadows || theme.glowingCubes) {
+                for (const cube of sorted) {
+                    if (theme.castShadows || cube.glows) {
+                        drawCubeShadow(cube);
+                    }
+                }
+            }
+            
+            // Then draw cubes
+            for (const cube of sorted) drawCube(cube);
+        }
+
+        function drawThemeEffects() {
+            const theme = getCurrentTheme();
+            const time = performance.now() / 1000;
+            const horizonY = getHorizonY();
+
+            // Lightning flash
+            if (theme.lightning && lightningFlash > 0) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${lightningFlash})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            if (theme.matrixRain) {
+                ctx.font = '14px monospace'; ctx.fillStyle = '#00ff00';
+                for (let i = 0; i < 40; i++) {
+                    const x = (i * 47 + time * 30) % canvas.width;
+                    const y = (time * 120 + i * 73) % horizonY;
+                    ctx.globalAlpha = 0.15 + Math.random() * 0.15;
+                    ctx.fillText(String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96)), x, y);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            if (theme.staticClouds) {
+                for (let i = 0; i < 300; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = Math.random() * horizonY;
+                    const gray = Math.random() * 80 + 175;
+                    ctx.fillStyle = `rgb(${gray},${gray},${gray})`;
+                    ctx.globalAlpha = 0.3;
+                    ctx.fillRect(x, y, 2 + Math.random() * 3, 1);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            if (theme.bubbles) {
+                // Bubbles only in sky (like floating jellyfish/particles)
+                const horizonY = getHorizonY();
+                ctx.strokeStyle = '#66ffff'; ctx.lineWidth = 1;
+                for (let i = 0; i < 25; i++) {
+                    const x = (i * 127 + ship.x * 0.3) % canvas.width;
+                    const y = (time * 30 + i * 67) % horizonY;
+                    ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(x, y, 3 + (i % 5), 0, Math.PI * 2); ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            if (theme.scanlines) {
+                ctx.fillStyle = '#000000'; ctx.globalAlpha = 0.08;
+                for (let y = 0; y < canvas.height; y += 4) ctx.fillRect(0, y, canvas.width, 2);
+                ctx.globalAlpha = 1;
+            }
+
+            if (theme.embers) {
+                for (let i = 0; i < 60; i++) {
+                    const x = (i * 137 + time * 40 + ship.x * 0.5) % canvas.width;
+                    const baseY = horizonY * 0.3;
+                    const y = baseY + Math.sin(time * 2 + i) * 40 + (i * 23) % (horizonY * 0.6);
+                    ctx.fillStyle = i % 3 === 0 ? '#ffcc00' : '#ff4400';
+                    ctx.globalAlpha = 0.4 + Math.sin(time * 3 + i) * 0.2;
+                    ctx.beginPath(); ctx.arc(x, y, 1.5 + Math.sin(time * 4 + i), 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // Dust storm - 3D particles coming towards player
+            if (theme.dustStorm) {
+                const dust = theme.dustStorm;
+                ctx.fillStyle = dust.color;
+                for (let i = 0; i < dust.density; i++) {
+                    // Particles in 3D space, static relative to ground
+                    const px = ship.x + ((i * 73.7) % 200 - 100);
+                    const pz = ship.z + ((i * 31.3 + ship.z * 0.5) % 80);
+                    const py = 0.5 + (i % 10) * 0.3;
+                    
+                    const projected = project(px, py, pz);
+                    if (projected.isBehind || projected.z < 1) continue;
+                    
+                    const size = Math.max(1, 4 / projected.z);
+                    const streakLength = Math.max(2, 20 / projected.z);
+                    ctx.globalAlpha = Math.min(0.6, 0.8 / projected.z);
+                    
+                    // Draw streak towards center (speed line effect)
+                    const dx = projected.x - canvas.width / 2;
+                    const dy = projected.y - canvas.height / 2;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) {
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        ctx.fillRect(projected.x, projected.y, streakLength * nx, size);
+                        ctx.fillRect(projected.x, projected.y, size, streakLength * ny);
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // Blizzard - 3D snow particles fixed in world space
+            if (theme.blizzard) {
+                const bliz = theme.blizzard;
+                ctx.fillStyle = bliz.color;
+                for (let i = 0; i < bliz.density; i++) {
+                    // Use prime-based pseudo-random offsets to break up patterns
+                    const hash1 = (i * 127.1 + 311.7) % 1;
+                    const hash2 = (i * 269.5 + 183.3) % 1;
+                    const hash3 = (i * 419.2 + 371.9) % 1;
+                    
+                    // Fixed world X position that tiles with randomized spacing
+                    const baseX = (i * 73.7 + hash1 * 50) % 200 - 100;
+                    const worldX = baseX + hash2 * 20 - 10;
+                    const px = worldX + Math.floor((ship.x - worldX + 100) / 200) * 200;
+                    const pz = ship.z + (((i * 31.3 + hash3 * 20) - ship.z * 2) % 60 + 60) % 60 + 5;
+                    const py = hash1 * 16 + Math.sin(time * 3 + i * hash2 * 10) * 0.5;
+                    
+                    const projected = project(px, py, pz);
+                    if (projected.isBehind || projected.z < 0.5) continue;
+                    
+                    const size = Math.max(3, 12 / projected.z);
+                    ctx.globalAlpha = Math.min(1.0, 5.0 / projected.z);
+                    ctx.beginPath();
+                    ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Streak based on particle's apparent motion (opposite of ship velocity)
+                    const streakLength = Math.max(5, 30 / projected.z);
+                    // Project a point slightly behind the particle to get streak direction
+                    const behindPoint = project(px + ship.velocityX * 0.1, py, pz - 2);
+                    if (behindPoint && !behindPoint.isBehind) {
+                        const sdx = behindPoint.x - projected.x;
+                        const sdy = behindPoint.y - projected.y;
+                        const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+                        if (sdist > 0) {
+                            ctx.globalAlpha = Math.min(0.9, 2.0 / projected.z);
+                            ctx.fillRect(projected.x, projected.y, streakLength * (sdx / sdist), size * 0.6);
+                        }
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawLevelMessage() {
+            if (transitionPhase !== 'message') return;
+            const theme = getCurrentTheme();
+            
+            ctx.save();
+            ctx.font = 'bold 72px Courier New';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Draw outline first - white on light backgrounds, black on dark
+            ctx.strokeStyle = theme.lightBackground ? '#ffffff' : '#000000';
+            ctx.lineWidth = 6;
+            ctx.strokeText(`LEVEL ${currentLevel}`, canvas.width / 2, canvas.height / 2 - 40);
+            
+            // Then draw colored fill with glow
+            ctx.shadowColor = theme.shipColor;
+            ctx.shadowBlur = 30;
+            ctx.fillStyle = theme.shipColor;
+            ctx.fillText(`LEVEL ${currentLevel}`, canvas.width / 2, canvas.height / 2 - 40);
+            
+            ctx.font = '24px Courier New';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 0;
+            ctx.strokeText(theme.name.toUpperCase(), canvas.width / 2, canvas.height / 2 + 30);
+            ctx.shadowBlur = 15;
+            ctx.fillText(theme.name.toUpperCase(), canvas.width / 2, canvas.height / 2 + 30);
+            
+            ctx.restore();
+        }
+
+        function update(dt) {
+            if (gameOver) return;
+
+            const time = performance.now() / 1000;
+            const theme = getCurrentTheme();
+
+            // Lightning
+            if (theme.lightning) {
+                if (lightningFlash > 0) {
+                    lightningFlash -= dt * 3;
+                } else if (Math.random() < 0.005) {
+                    lightningFlash = 0.8;
+                }
+            }
+
+            // Handle level timing
+            if (!transitioning) {
+                levelTime += dt;
+                if (levelTime >= levelDuration) {
+                    startLevelTransition();
+                }
+            }
+
+            // Handle transition phases
+            if (transitioning) {
+                if (transitionPhase === 'exiting') {
+                    const aheadCubes = cubes.filter(c => c.z > ship.z);
+                    if (aheadCubes.length === 0) {
+                        transitionPhase = 'message';
+                        messageTimer = 0;
+                        advanceLevel();
+                    }
+                } else if (transitionPhase === 'message') {
+                    messageTimer += dt;
+                    if (messageTimer >= 2) {
+                        transitionPhase = 'entering';
+                        spawningEnabled = true;
+                        levelTime = 0;
+                        // Initialize cubes for formation levels - update start position first
+                        const theme = getCurrentTheme();
+                        if (theme.formation && formations[theme.formation]) {
+                            levelStartX = ship.x;
+                            levelStartZ = ship.z;
+                            initCubes();
+                        }
+                    }
+                } else if (transitionPhase === 'entering') {
+                    const aheadCubes = cubes.filter(c => c.z > ship.z + 20);
+                    if (aheadCubes.length >= 5) {
+                        transitioning = false;
+                        transitionPhase = 'none';
+                    }
+                }
+            }
+
+            // Ship controls
+            let targetVelocityX = 0, targetBankAngle = 0;
+            if (keys.left) { targetVelocityX = -ship.lateralSpeed; targetBankAngle = ship.maxBankAngle; }
+            if (keys.right) { targetVelocityX = ship.lateralSpeed; targetBankAngle = -ship.maxBankAngle; }
+
+            ship.velocityX += (targetVelocityX - ship.velocityX) * (1 - Math.exp(-ship.returnSpeed * dt));
+            ship.bankAngle += (targetBankAngle - ship.bankAngle) * (1 - Math.exp(-ship.bankSpeed * dt));
+            ship.x += ship.velocityX * dt;
+            ship.z += ship.velocityZ * dt;
+
+            score += Math.round(ship.velocityZ * dt * 10);
+
+            // Spawn cubes
+            if (spawningEnabled) {
+                const theme = getCurrentTheme();
+                const effectiveSpawnRate = cubeSettings.spawnRate * (theme.spawnRateMultiplier || 1);
+                if (Math.random() < effectiveSpawnRate) spawnCube();
+            }
+
+            // Update moving cubes
+            updateCubes(time);
+
+            // Remove old cubes (account for cube size and camera being behind ship)
+            const cameraZ = ship.z - camera.distance;
+            for (let i = cubes.length - 1; i >= 0; i--) {
+                const cube = cubes[i];
+                const halfZ = cube.size * cube.scaleZ / 2;
+                if (cube.z + halfZ < cameraZ - cubeSettings.despawnDistance) cubes.splice(i, 1);
+            }
+
+            // Check collisions
+            if (transitionPhase !== 'message') {
+                for (const cube of cubes) {
+                    if (checkCollision(cube)) {
+                        gameOver = true;
+                        if (score > highScore) {
+                            highScore = score;
+                            localStorage.setItem('cubeRunnerHighScore', highScore);
+                        }
+                        document.getElementById('gameover').style.display = 'block';
+                        if (isTouchDevice) document.getElementById('touchControls').style.display = 'none';
+                        break;
+                    }
+                }
+            }
+
+            camera.x = ship.x;
+            camera.y = ship.y + camera.height;
+            camera.z = ship.z - camera.distance;
+            camera.bankAngle = ship.bankAngle;
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('highscore').textContent = highScore;
+            document.getElementById('level').textContent = currentLevel;
+            
+            // Update UI colors based on theme
+            const uiElement = document.getElementById('ui');
+            const controlsElement = document.getElementById('controls');
+            if (theme.lightBackground) {
+                uiElement.style.color = '#222222';
+                controlsElement.style.color = '#444444';
+            } else {
+                uiElement.style.color = '#00ffff';
+                controlsElement.style.color = '#888888';
+            }
+        }
+
+        function render() {
+            const theme = getCurrentTheme();
+
+            // Background
+            ctx.fillStyle = theme.background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Ground color (fill below horizon, rotates with camera)
+            if (theme.groundColor) {
+                const horizonY = getHorizonY();
+                const bankAngle = camera.bankAngle * 0.3;
+                
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(bankAngle);
+                ctx.translate(-canvas.width / 2, -canvas.height / 2);
+                
+                const padding = 200;
+                ctx.fillStyle = theme.groundColor;
+                ctx.fillRect(-padding, horizonY, canvas.width + padding * 2, canvas.height + padding);
+                ctx.restore();
+            }
+
+            // Horizon glow (before everything)
+            drawHorizonGlow();
+
+            // Stars (only above horizon)
+            if (theme.drawStars) {
+                const horizonY = getHorizonY();
+                ctx.fillStyle = theme.starColor || '#ffffff';
+                for (let i = 0; i < 100; i++) {
+                    const starX = ((i * 137.5 + ship.x * 0.1) % canvas.width + canvas.width) % canvas.width;
+                    const starY = ((i * 89.3) % (horizonY * 0.95));
+                    ctx.globalAlpha = 0.3 + (i % 5) * 0.12;
+                    ctx.fillRect(starX, starY, (i % 3) + 1, (i % 3) + 1);
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            drawThemeEffects();
+            drawGround();
+            drawCubes();
+            drawShip();
+            drawLevelMessage();
+        }
+
+        let lastTime = performance.now();
+        function gameLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+            update(dt);
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        initCubes();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

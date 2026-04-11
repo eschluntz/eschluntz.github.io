@@ -1,0 +1,74 @@
+---
+layout: default
+---
+
+<!-- Page Header -->
+{% if page.background %}
+<header class="masthead" style="background-image: url('{{ page.background | prepend: site.baseurl | replace: '//', '/' }}')">
+  {% else %}
+  <header class="masthead">
+    {% endif %}
+    <div class="overlay"></div>
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-8 col-md-10" style="margin-left:0px; float:left">
+          <div class="page-heading" style="float:left">
+            <h1>Business</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="row">
+      <div>
+
+        {{ content }}
+
+        <!-- Home Post List -->
+        {% for post in site.posts %}
+        {% if post.category contains "business" %}
+
+        <article class="post-preview" style="min-height:400px;">
+          <a href="{{ post.url | prepend: site.baseurl | replace: '//', '/' }}" style="text-decoration: none;">
+            <img style="border-radius:500px; width:350px; height:350px; float:left; margin-right:40px;" src="{{ post.thumbnail }}" />
+            <table>
+              <tbody>
+                <tr>
+                  <td>
+                    <h2 class="post-title">{{ post.title }}</h2>
+                    {% if post.subtitle %}
+                    <h3 class="post-subtitle">{{ post.subtitle }}</h3>
+                    {% else %}
+                    <span class="post-subtitle">{{ post.excerpt | strip_html | truncatewords: 60 }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </a>
+          <p class="post-meta">Posted by
+            {% if post.author %}
+            {{ post.author }}
+            {% else %}
+            {{ site.author }}
+            {% endif %}
+            on
+            {{ post.date | date: '%B %d, %Y' }} &middot; {% include read_time.html content=post.content %}
+          </p>
+        </article>
+
+        <hr>
+
+        {% endif %}
+        {% endfor %}
+
+        <!-- Pager -->
+        <div class="clearfix">
+          <a class="btn btn-primary float-right" href="{{"/posts" | relative_url }}">View All Posts &rarr;</a>
+        </div>
+
+      </div>
+    </div>
+  </div>

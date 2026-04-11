@@ -1,0 +1,278 @@
+---
+permalink: /caltrain
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caltrain Schedule</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: white;
+            color: black;
+            margin: 20px;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .schedule-info {
+            margin: 20px 0;
+        }
+        
+        .train-info {
+            margin: 10px 0;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+        }
+        
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .error {
+            color: #cc0000;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="app">
+            <div class="loading">Getting your location...</div>
+        </div>
+        
+        <div class="footer">
+            <a href="https://www.caltrain.com/schedules" target="_blank">Full Schedule</a>
+        </div>
+    </div>
+    <script src="caltrain-data.js"></script>
+    <script>
+
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function findClosestStation(userLat, userLng) {
+            let closest = null;
+            let minDistance = Infinity;
+            
+            for (const [key, station] of Object.entries(stations)) {
+                const distance = calculateDistance(userLat, userLng, station.lat, station.lng);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closest = { key, ...station, distance };
+                }
+            }
+            
+            return closest;
+        }
+
+        function timeToMinutes(timeStr) {
+            const [time, period] = timeStr.split(' ');
+            const [hours, minutes] = time.split(':').map(Number);
+            let adjustedHours = hours;
+            
+            if (period === 'PM' && hours !== 12) {
+                adjustedHours += 12;
+            } else if (period === 'AM' && hours === 12) {
+                adjustedHours = 0;
+            }
+            
+            return adjustedHours * 60 + minutes;
+        }
+
+        function minutesToTime(minutes) {
+            const hours24 = Math.floor(minutes / 60) % 24;
+            const mins = minutes % 60;
+            const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+            const period = hours24 < 12 ? 'AM' : 'PM';
+            return `${hours12}:${mins.toString().padStart(2, '0')} ${period}`;
+        }
+
+        function getStationKey(stationName) {
+            const keyMap = {
+                'San Francisco': 'sf',
+                '22nd Street': '22nd',
+                'Bayshore': 'bayshore',
+                'South San Francisco': 'ssf',
+                'San Bruno': 'bruno',
+                'Millbrae': 'millbrae',
+                'Burlingame': 'burlingame',
+                'San Mateo': 'sanmateo',
+                'Hayward Park': 'hayward',
+                'Hillsdale': 'hillsdale',
+                'Belmont': 'belmont',
+                'San Carlos': 'sancarlos',
+                'Redwood City': 'redwood',
+                'Menlo Park': 'menlo',
+                'Palo Alto': 'palo',
+                'California Avenue': 'calave',
+                'San Antonio': 'sanantonio',
+                'Mountain View': 'mv',
+                'Sunnyvale': 'sunnyvale',
+                'Lawrence': 'lawrence',
+                'Santa Clara': 'santaclara',
+                'San Jose Diridon': 'sanjose'
+            };
+            return keyMap[stationName] || 'sf';
+        }
+
+        function getNextTrains(currentTime, isWeekday, isSouthbound, stationKey) {
+            const currentMinutes = timeToMinutes(currentTime);
+            let schedule;
+            
+            if (isWeekday) {
+                schedule = isSouthbound ? weekdaySchedule.southbound : weekdaySchedule.northbound;
+            } else {
+                schedule = isSouthbound ? weekendSchedule.southbound : weekendSchedule.northbound;
+            }
+            
+            const upcomingTrains = schedule
+                .map(train => {
+                    const departTime = train[stationKey];
+                    if (!departTime) return null;
+                    return {
+                        ...train,
+                        depart: departTime,
+                        departMinutes: timeToMinutes(departTime)
+                    };
+                })
+                .filter(train => train && train.departMinutes > currentMinutes)
+                .slice(0, 2);
+            
+            if (upcomingTrains.length === 0) {
+                const nextDayTrains = schedule.slice(0, 2).map(train => {
+                    const departTime = train[stationKey];
+                    if (!departTime) return null;
+                    return {
+                        ...train,
+                        depart: departTime,
+                        departMinutes: timeToMinutes(departTime) + 24 * 60
+                    };
+                }).filter(train => train);
+                return nextDayTrains;
+            }
+            
+            return upcomingTrains;
+        }
+
+        function displaySchedule(station, userLat, userLng) {
+            const now = new Date();
+            const hours24 = now.getHours();
+            const mins = now.getMinutes();
+            const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+            const period = hours24 < 12 ? 'AM' : 'PM';
+            const currentTime = `${hours12}:${mins.toString().padStart(2, '0')} ${period}`;
+            const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+            const currentMinutes = timeToMinutes(currentTime);
+            
+            const isSouthbound = station.key === 'sf' || station.key === '22nd';
+            const stationKey = getStationKey(station.name);
+            const nextTrains = getNextTrains(currentTime, isWeekday, isSouthbound, stationKey);
+            
+            let html = `<div class="schedule-info">`;
+            html += `<div>Closest station: ${station.name}</div>`;
+            html += `<div style="margin-top: 15px;">`;
+            
+            nextTrains.forEach(train => {
+                const minutesUntil = train.departMinutes - currentMinutes;
+                const bulletText = train.bullet ? ' (bullet)' : '';
+                
+                if (isSouthbound) {
+                    if (train.menlo) {
+                        html += `<div class="train-info"><strong>${minutesUntil} minutes</strong> until <strong>${train.depart}</strong> southbound train${bulletText}.<br>Arrives at Menlo Park at <strong>${train.menlo}</strong></div>`;
+                    } else {
+                        html += `<div class="train-info"><strong>${minutesUntil} minutes</strong> until <strong>${train.depart}</strong> southbound train${bulletText}.<br>Arrives at Palo Alto at <strong>${train.palo}</strong></div>`;
+                    }
+                } else {
+                    html += `<div class="train-info"><strong>${minutesUntil} minutes</strong> until <strong>${train.depart}</strong> northbound train${bulletText}.<br>Arrives in SF at <strong>${train.sf}</strong></div>`;
+                }
+            });
+            
+            html += `</div></div>`;
+            
+            document.getElementById('app').innerHTML = html;
+        }
+
+        function showError(message) {
+            document.getElementById('app').innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function init() {
+            if (!navigator.geolocation) {
+                showError('Geolocation is not supported by this browser.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const closestStation = findClosestStation(userLat, userLng);
+                    
+                    if (closestStation.distance > 5) {
+                        showError('You appear to be more than 5km from any Caltrain station.');
+                        return;
+                    }
+                    
+                    displaySchedule(closestStation, userLat, userLng);
+                },
+                function(error) {
+                    let errorMsg = 'Unable to get your location. ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg += 'Please allow location access.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg += 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg += 'Location request timed out.';
+                            break;
+                        default:
+                            errorMsg += 'An unknown error occurred.';
+                            break;
+                    }
+                    showError(errorMsg);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000
+                }
+            );
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>

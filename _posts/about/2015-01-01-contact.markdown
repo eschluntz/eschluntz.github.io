@@ -1,0 +1,16 @@
+---
+layout: post
+title:  "Contact"
+date:   2015-01-01 00:00:00 -0700
+thumbnail: '/img/about/crew.jpg'
+category: about
+---
+
+<a href="https://twitter.com/ErikSchluntz">@ErikSchluntz</a><br>
+
+<a href="https://www.linkedin.com/in/erik-schluntz-530a9053/">linkedin.com/in/erik-schluntz-530a9053/</a><br>
+
+<a href="http://www.github.com/eschluntz">github.com/eschluntz</a> <br>
+
+<a href="https://www.youtube.com/user/eschluntz/videos">youtube.com/user/eschluntz/videos</a><br>
+
